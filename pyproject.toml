@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "duw"
+version = "0.1.0"
+description = "Derivatives Underwriting Workbench — an educational desktop analytics app for OTC derivatives counterparty-credit underwriting."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Chafic" }]
+keywords = [
+    "derivatives",
+    "counterparty-credit",
+    "exposure",
+    "cva",
+    "underwriting",
+]
+
+# Runtime dependencies. The app runs fully offline against a bundled synthetic
+# market snapshot; yfinance is opt-in and always degrades gracefully.
+dependencies = [
+    "PySide6>=6.6",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "plotly>=5.18",
+    "kaleido>=0.2.1",
+    "pyarrow>=14.0",
+    "yfinance>=0.2.37",
+    "reportlab>=4.0",
+    "python-pptx>=0.6.23",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "pytest>=8.0",
+]
+
+[project.scripts]
+duw = "duw.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Bundle the synthetic market snapshot and seed counterparties with the package.
+duw = ["data/*.json", "data/*.parquet"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# A pragmatic default set: pyflakes, pycodestyle, isort, pyupgrade, bugbear.
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["duw"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q"
+# Qt tests must run headlessly; set QT_QPA_PLATFORM=offscreen in the environment
+# when invoking pytest (see README getting-started).
