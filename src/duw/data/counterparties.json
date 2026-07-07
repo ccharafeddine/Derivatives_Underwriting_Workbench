@@ -1,0 +1,84 @@
+{
+  "counterparties": [
+    {
+      "counterparty_id": "CP001",
+      "name": "Acme Manufacturing Corp",
+      "sector": "Industrials",
+      "ticker": null,
+      "cds_issuer": "ACME",
+      "internal_rating": "BBB",
+      "financials": {
+        "total_assets": 5200.0,
+        "total_liabilities": 3100.0,
+        "current_assets": 2100.0,
+        "current_liabilities": 1250.0,
+        "retained_earnings": 820.0,
+        "ebit": 610.0,
+        "sales": 4200.0,
+        "market_equity": 2600.0,
+        "equity_volatility": 0.32,
+        "currency": "USD"
+      }
+    },
+    {
+      "counterparty_id": "CP002",
+      "name": "Globex Technologies Inc",
+      "sector": "Technology",
+      "ticker": "GBX",
+      "cds_issuer": "GLOBEX",
+      "internal_rating": "A",
+      "financials": {
+        "total_assets": 9800.0,
+        "total_liabilities": 4200.0,
+        "current_assets": 5100.0,
+        "current_liabilities": 1900.0,
+        "retained_earnings": 3100.0,
+        "ebit": 1850.0,
+        "sales": 7600.0,
+        "market_equity": 11200.0,
+        "equity_volatility": 0.28,
+        "currency": "USD"
+      }
+    },
+    {
+      "counterparty_id": "CP003",
+      "name": "Initech Financial Partners",
+      "sector": "Financials",
+      "ticker": null,
+      "cds_issuer": "INITECH",
+      "internal_rating": "BB",
+      "financials": {
+        "total_assets": 14500.0,
+        "total_liabilities": 12800.0,
+        "current_assets": 6200.0,
+        "current_liabilities": 5900.0,
+        "retained_earnings": 640.0,
+        "ebit": 720.0,
+        "sales": 3100.0,
+        "market_equity": 1900.0,
+        "equity_volatility": 0.45,
+        "currency": "USD"
+      }
+    },
+    {
+      "counterparty_id": "CP004",
+      "name": "Umbrella Energy SE",
+      "sector": "Energy",
+      "ticker": null,
+      "cds_issuer": null,
+      "internal_rating": "BBB",
+      "financials": {
+        "total_assets": 7300.0,
+        "total_liabilities": 4100.0,
+        "current_assets": 2600.0,
+        "current_liabilities": 1700.0,
+        "retained_earnings": 1150.0,
+        "ebit": 890.0,
+        "sales": 6800.0,
+        "market_equity": 3800.0,
+        "equity_volatility": 0.36,
+        "currency": "EUR"
+      }
+    }
+  ]
+}
