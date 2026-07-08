@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QTemporaryDir, QUrl
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -50,6 +51,8 @@ class MemoTab(QWidget):
         buttons.addWidget(self.export_pptx_btn)
         buttons.addStretch(1)
 
+        self._tmpdir = QTemporaryDir()
+        self._counter = 0
         self._view: QWidget
         try:
             from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -79,8 +82,13 @@ class MemoTab(QWidget):
             btn.setEnabled(True)
 
     def _show_html(self, html: str) -> None:
+        # The memo with inlined charts is several MB; ``setHtml`` silently fails
+        # above ~2 MB, so load a temp file for the web view (see PlotlyView).
         if self._web:
-            self._view.setHtml(html)
+            self._counter += 1
+            path = Path(self._tmpdir.path()) / f"memo_{self._counter}.html"
+            path.write_text(html, encoding="utf-8")
+            self._view.load(QUrl.fromLocalFile(str(path)))
         else:
             self._view.setHtml(html)
 

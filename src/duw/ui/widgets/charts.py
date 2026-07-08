@@ -30,11 +30,20 @@ _OK = "#2ca02c"
 
 
 def _base_layout(fig: go.Figure, title: str, ytitle: str = "Exposure") -> go.Figure:
+    # Title sits top-left; the legend runs horizontally along the bottom so the
+    # two never share the top band (which previously overlapped the title text).
     fig.update_layout(
-        title=title,
+        title=dict(
+            text=title,
+            x=0.02,
+            xanchor="left",
+            y=0.97,
+            yanchor="top",
+            font=dict(size=15),
+        ),
         template="plotly_white",
-        margin=dict(l=60, r=30, t=50, b=50),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        margin=dict(l=64, r=30, t=54, b=84),
+        legend=dict(orientation="h", yanchor="top", y=-0.22, x=0.5, xanchor="center"),
         xaxis_title="Years",
         yaxis_title=ytitle,
     )
@@ -168,7 +177,10 @@ def cva_figure(cva: CVAResult | None) -> go.Figure:
         if not math.isnan(cva.cva)
         else "CVA breakdown"
     )
-    return _base_layout(fig, title, ytitle="Discounted expected loss")
+    fig = _base_layout(fig, title, ytitle="Discounted expected loss")
+    # Single series: the title carries the totals, so no legend is needed.
+    fig.update_layout(showlegend=False)
+    return fig
 
 
 def limits_figure(limits: LimitCheck | None) -> go.Figure:
@@ -204,11 +216,18 @@ def limits_figure(limits: LimitCheck | None) -> go.Figure:
         )
     fig.update_layout(
         barmode="stack",
-        title=f"Limit utilization {limits.utilization:.0%}"
-        + (" — BREACH" if limits.breach else ""),
+        title=dict(
+            text=f"Limit utilization {limits.utilization:.0%}"
+            + (" — BREACH" if limits.breach else ""),
+            x=0.02,
+            xanchor="left",
+            y=0.97,
+            yanchor="top",
+            font=dict(size=15),
+        ),
         template="plotly_white",
-        margin=dict(l=80, r=30, t=50, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        margin=dict(l=90, r=40, t=54, b=80),
+        legend=dict(orientation="h", yanchor="top", y=-0.25, x=0.5, xanchor="center"),
         xaxis_title="Exposure",
     )
     return fig
