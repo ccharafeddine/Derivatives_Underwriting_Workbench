@@ -154,6 +154,7 @@ src/duw/
     model.py            # Scenario / Decision / outcome frozen dataclasses
     io.py               # human-authorable scenario JSON load/save + validation
     engine.py           # ScenarioEngine: steps rounds, orchestrates the pipeline
+    scoring.py          # Scorer: risk-adjusted P&L + component breakdown of a run
 tests/
 ```
 

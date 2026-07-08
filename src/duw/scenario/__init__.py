@@ -2,9 +2,10 @@
 
 The scripted, multi-round scenario engine the simulator UI and instructor mode
 (both later sessions) sit on. Loads a shareable scenario file, steps through its
-rounds against the existing underwriting pipeline, and records the consequences
-of each decision — including realized loss when a counterparty defaults. No UI
-and no scoring live here; this package is pure and headlessly testable.
+rounds against the existing underwriting pipeline, records the consequences of
+each decision (including realized loss when a counterparty defaults), and scores
+the run into a risk-adjusted performance result. No UI lives here; this package
+is pure and headlessly testable.
 """
 
 from __future__ import annotations
@@ -35,6 +36,14 @@ from duw.scenario.model import (
     ScenarioResult,
     SimSettings,
 )
+from duw.scenario.scoring import (
+    RoundScore,
+    ScoreBreakdown,
+    Scorer,
+    ScoreResult,
+    ScoringParams,
+    score_scenario,
+)
 
 __all__ = [
     "CreditState",
@@ -45,6 +54,7 @@ __all__ = [
     "DefaultEvent",
     "DefaultOutcome",
     "MarketRound",
+    "RoundScore",
     "Scenario",
     "ScenarioCounterparty",
     "ScenarioEngine",
@@ -52,6 +62,10 @@ __all__ = [
     "ScenarioMeta",
     "ScenarioResult",
     "ScenarioValidationError",
+    "ScoreBreakdown",
+    "ScoreResult",
+    "Scorer",
+    "ScoringParams",
     "SimSettings",
     "load_bundled_scenario",
     "load_scenario",
@@ -59,5 +73,6 @@ __all__ = [
     "save_scenario",
     "scenario_from_dict",
     "scenario_to_dict",
+    "score_scenario",
     "validate_scenario",
 ]
