@@ -26,12 +26,14 @@ from PySide6.QtWidgets import (
 )
 
 from duw.config import (
+    KEY_FUNDING_BPS,
     KEY_LGD,
     KEY_MC_PATHS,
     KEY_MC_SEED,
     KEY_MC_STEPS,
     KEY_THEME,
     KEY_UPDATE_CHECK,
+    KEY_WWR,
     AppSettings,
 )
 from duw.domain.counterparty import Counterparty
@@ -235,6 +237,8 @@ class MainWindow(QMainWindow):
             n_steps=self.settings.get_int(KEY_MC_STEPS),
             seed=self.settings.get_int(KEY_MC_SEED),
             lgd=self.settings.get_float(KEY_LGD),
+            funding_spread=self.settings.get_float(KEY_FUNDING_BPS) / 1e4,
+            wwr_correlation=self.settings.get_float(KEY_WWR),
         )
 
     def _on_reopen(self, deal: Deal) -> None:

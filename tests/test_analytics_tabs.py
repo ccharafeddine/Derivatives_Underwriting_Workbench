@@ -88,7 +88,7 @@ def test_cva_tab_renders(qapp) -> None:
     tab = CvaTab()
     tab.set_results(_canned_results())
     assert tab.view.figure is not None
-    assert tab.table.rowCount() == 4
+    assert tab.table.rowCount() == 5  # CVA, DVA, BCVA, FVA, LGD
 
 
 def test_collateral_tab_recomputes_on_apply(qapp) -> None:

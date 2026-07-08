@@ -38,6 +38,7 @@ from duw.risk.cva import (
     compute_bcva,
     constant_hazard_survival,
     expected_exposures_from_cube,
+    wrong_way_adjusted_ee,
 )
 from duw.risk.exposure import ExposureEngine
 from duw.risk.limits import limit_check_from_peaks
@@ -64,6 +65,8 @@ class RunConfig:
     lgd: float = 0.6
     own_credit_spread: float = 0.004
     own_recovery: float = 0.4
+    funding_spread: float = 0.0
+    wwr_correlation: float = 0.0
     csa_threshold: float | None = None
     csa_mta: float = 0.0
     csa_initial_margin: float = 0.0
@@ -280,9 +283,19 @@ class Orchestrator:
             )
             own_lgd = 1.0 - cfg.own_recovery
 
-        ee, ene = expected_exposures_from_cube(cube)
+        _, ene = expected_exposures_from_cube(cube)
+        ee = wrong_way_adjusted_ee(cube, cfg.wwr_correlation)
         return compute_bcva(
-            grid, ee, ene, discount_curve, cp_survival, cp_lgd, own_survival, own_lgd
+            grid,
+            ee,
+            ene,
+            discount_curve,
+            cp_survival,
+            cp_lgd,
+            own_survival,
+            own_lgd,
+            funding_spread=cfg.funding_spread,
+            wwr_correlation=cfg.wwr_correlation,
         )
 
     @staticmethod

@@ -68,16 +68,20 @@ class CollateralResult:
 
 @dataclass(frozen=True)
 class CVAResult:
-    """Credit / debit valuation adjustment (Step 8).
+    """Credit / debit / funding valuation adjustments (Step 8).
 
-    ``bcva`` == ``cva`` − ``dva``. ``contributions`` is an optional per-interval
-    breakdown aligned with ``time_grid`` for charting.
+    ``bcva`` == ``cva`` − ``dva``. ``fva`` is the funding valuation adjustment
+    (0 when no funding spread is set). ``wwr_correlation`` is the exposure-credit
+    correlation used for wrong-way risk (0 = independence). ``contributions`` is
+    an optional per-interval breakdown aligned with ``time_grid`` for charting.
     """
 
     cva: float = nan
     dva: float = nan
     bcva: float = nan
+    fva: float = 0.0
     lgd: float = nan
+    wwr_correlation: float = 0.0
     time_grid: tuple[float, ...] = field(default_factory=tuple)
     contributions: tuple[float, ...] = field(default_factory=tuple)
 

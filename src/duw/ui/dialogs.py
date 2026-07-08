@@ -32,11 +32,13 @@ from PySide6.QtWidgets import (
 
 from duw import __version__
 from duw.config import (
+    KEY_FUNDING_BPS,
     KEY_LGD,
     KEY_MC_PATHS,
     KEY_MC_SEED,
     KEY_MC_STEPS,
     KEY_UPDATE_CHECK,
+    KEY_WWR,
     AppSettings,
 )
 from duw.glossary import GLOSSARY
@@ -74,11 +76,30 @@ class SettingsDialog(QDialog):
         self.lgd.setSuffix(" %")
         self.lgd.setValue(settings.get_float(KEY_LGD) * 100.0)
 
+        self.funding = QDoubleSpinBox()
+        self.funding.setRange(0.0, 1000.0)
+        self.funding.setDecimals(0)
+        self.funding.setSuffix(" bps")
+        self.funding.setToolTip("Funding spread used for FVA (0 = no FVA).")
+        self.funding.setValue(settings.get_float(KEY_FUNDING_BPS))
+
+        self.wwr = QDoubleSpinBox()
+        self.wwr.setRange(-1.0, 1.0)
+        self.wwr.setDecimals(2)
+        self.wwr.setSingleStep(0.1)
+        self.wwr.setToolTip(
+            "Wrong-way risk: exposure-credit correlation (0 = independence, "
+            "positive raises CVA)."
+        )
+        self.wwr.setValue(settings.get_float(KEY_WWR))
+
         form = QFormLayout()
         form.addRow("Monte Carlo paths", self.paths)
         form.addRow("Time-grid steps", self.steps)
         form.addRow("Random seed", self.seed)
         form.addRow("Default LGD", self.lgd)
+        form.addRow("Funding spread (FVA)", self.funding)
+        form.addRow("Wrong-way corr.", self.wwr)
         form.addRow("Confidence levels", QLabel("95% and 99% (fixed)"))
 
         buttons = QDialogButtonBox(
@@ -139,6 +160,8 @@ class SettingsDialog(QDialog):
         self._settings.set(KEY_MC_STEPS, self.steps.value())
         self._settings.set(KEY_MC_SEED, self.seed.value())
         self._settings.set(KEY_LGD, self.lgd.value() / 100.0)
+        self._settings.set(KEY_FUNDING_BPS, self.funding.value())
+        self._settings.set(KEY_WWR, self.wwr.value())
         self._settings.set(KEY_UPDATE_CHECK, self.check_on_startup.isChecked())
         self._settings.sync()
         self.accept()

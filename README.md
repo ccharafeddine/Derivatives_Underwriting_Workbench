@@ -94,8 +94,11 @@ mitigation is explicit.
 
 Compute the Credit Valuation Adjustment: the market value of the counterparty's
 default risk, built from the expected-exposure profile, the counterparty's
-survival curve, and discounting. The symmetric own-credit adjustment (DVA) and
-the bilateral net (BCVA) are reported alongside.
+survival curve, and discounting. The symmetric own-credit adjustment (DVA), the
+bilateral net (BCVA), and a funding valuation adjustment (FVA) are reported
+alongside. A **wrong-way risk** correlation (set in Preferences) tilts expected
+exposure toward its higher paths, raising CVA when exposure rises with default
+risk.
 
 ![CVA tab](docs/images/cva.png)
 

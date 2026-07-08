@@ -52,10 +52,24 @@ tests and green CI (ruff + headless pytest on Python 3.11/3.12).
 - Windows `.msi` and macOS `.dmg` per [PACKAGING.md](PACKAGING.md); code signing
   and notarization remain a documented follow-up.
 
-## Beyond v2
+## v3 — toward v1.0.0
 
-Deliberately deferred extension points: wrong-way risk in exposure and CVA;
-additional products (cross-currency swaps, swaptions, options); funding and
-other XVA terms; multi-currency collateral; exposure/CVA sensitivities
-(DV01 / CS01); richer curve construction; and code-signed, auto-updating
-release builds.
+Deepening the analytics to a rounded 1.0. Each item ships with tests and green CI.
+
+1. **Wrong-way risk + FVA** ✅ — exposure-credit correlation tilts CVA
+   (`wrong_way_adjusted_ee`), plus a funding valuation adjustment. Both set in
+   Preferences and reported in the CVA tab and memo.
+2. **New products** — cross-currency swap and swaption (analytic pricers,
+   exposure wiring, UI).
+3. **Multi-currency collateral** — post/receive collateral in a chosen currency
+   with an FX haircut.
+4. **Exposure / CVA sensitivities** — DV01, CS01, and FX delta of peak PFE and
+   CVA by finite difference over the market (common random numbers).
+5. **v1.0.0 release** — cut once the above land.
+
+## Beyond v1.0.0
+
+Further extension points: additional products (options, caps/floors); richer
+multi-curve construction (OIS discounting vs projection); other XVA terms
+(KVA/MVA); and code-signed, auto-updating release builds (needs a signing
+certificate).

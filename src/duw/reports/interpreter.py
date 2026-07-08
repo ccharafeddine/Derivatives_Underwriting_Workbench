@@ -111,12 +111,21 @@ def interpret_cva(results: AnalysisResults) -> str:
     cva = results.cva
     if cva is None or math.isnan(cva.cva):
         return "No CVA analysis is available."
-    return (
+    parts = [
         f"The credit valuation adjustment (CVA) is {_fmt(cva.cva)}, the own-credit "
         f"debit adjustment (DVA) is {_fmt(cva.dva)}, and the bilateral net (BCVA) "
         f"is {_fmt(cva.bcva)}. CVA is the market price of the counterparty's "
         "default risk over the life of the netting set."
-    )
+    ]
+    if cva.fva:
+        parts.append(f"The funding valuation adjustment (FVA) is {_fmt(cva.fva)}.")
+    if cva.wwr_correlation:
+        direction = "wrong-way" if cva.wwr_correlation > 0 else "right-way"
+        parts.append(
+            f"CVA reflects a {direction}-risk exposure-credit correlation of "
+            f"{cva.wwr_correlation:+.2f}."
+        )
+    return " ".join(parts)
 
 
 def interpret_limits(results: AnalysisResults) -> str:

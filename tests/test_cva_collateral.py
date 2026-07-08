@@ -13,10 +13,11 @@ from duw.domain.market import CreditCurve
 from duw.pricing.curves import DiscountCurve, SurvivalCurve
 from duw.risk.collateral import CSA, apply_csa, compute_collateral
 from duw.risk.cva import (
-    apply_wrong_way_risk,
     compute_bcva,
     compute_cva,
+    compute_fva,
     expected_exposures_from_cube,
+    wrong_way_adjusted_ee,
 )
 from duw.risk.exposure import ExposureEngine
 
@@ -103,9 +104,59 @@ def test_bcva_defaults_to_cva_without_own_curve() -> None:
     assert result.bcva == pytest.approx(result.cva)
 
 
-def test_wrong_way_risk_is_a_hook_only() -> None:
-    with pytest.raises(NotImplementedError):
-        apply_wrong_way_risk()
+def test_wrong_way_adjusted_ee_tilts_with_correlation() -> None:
+    # A cube with a spread of positive exposures across paths.
+    cube = np.array(
+        [[0.0, 100.0], [0.0, 300.0], [0.0, 500.0], [0.0, 900.0]], dtype=float
+    )
+    plain = wrong_way_adjusted_ee(cube, 0.0)
+    assert plain[1] == pytest.approx(cube[:, 1].mean())  # rho=0 -> mean EE
+    wrong = wrong_way_adjusted_ee(cube, 0.6)
+    right = wrong_way_adjusted_ee(cube, -0.6)
+    # Wrong-way tilts EE up (toward high-exposure paths); right-way down.
+    assert wrong[1] > plain[1] > right[1]
+
+
+def test_wrong_way_risk_raises_cva() -> None:
+    grid = (0.0, 1.0, 2.0, 3.0, 5.0)
+    cube = np.array(
+        [[0.0, 100.0, 150.0, 120.0, 0.0]] * 1 + [[0.0, 800.0, 900.0, 700.0, 0.0]] * 1,
+        dtype=float,
+    )
+    curve, surv = _usd_curve(), _survival(0.02)
+    ee_indep = wrong_way_adjusted_ee(cube, 0.0)
+    ee_wwr = wrong_way_adjusted_ee(cube, 0.8)
+    cva_indep, _ = compute_cva(grid, ee_indep, curve, surv, lgd=0.6)
+    cva_wwr, _ = compute_cva(grid, ee_wwr, curve, surv, lgd=0.6)
+    assert cva_wwr > cva_indep
+
+
+def test_fva_scales_with_funding_spread() -> None:
+    grid = (0.0, 1.0, 2.0, 3.0, 5.0)
+    ee = _flat_ee(1_000_000.0, grid)
+    ene = _flat_ee(200_000.0, grid)
+    curve = _usd_curve()
+    assert compute_fva(grid, ee, ene, curve, 0.0) == 0.0
+    fva = compute_fva(grid, ee, ene, curve, 0.01)
+    assert fva > 0.0  # positive net exposure funded at a positive spread
+    assert compute_fva(grid, ee, ene, curve, 0.02) == pytest.approx(2.0 * fva)
+
+
+def test_bcva_includes_fva_and_records_wwr() -> None:
+    grid = (0.0, 1.0, 3.0, 5.0)
+    ee = _flat_ee(500_000.0, grid)
+    result = compute_bcva(
+        grid,
+        ee=ee,
+        ene=_flat_ee(100_000.0, grid),
+        discount_curve=_usd_curve(),
+        cp_survival=_survival(0.02),
+        cp_lgd=0.6,
+        funding_spread=0.008,
+        wwr_correlation=0.3,
+    )
+    assert result.fva > 0.0
+    assert result.wwr_correlation == 0.3
 
 
 # --------------------------------------------------------------------------- #

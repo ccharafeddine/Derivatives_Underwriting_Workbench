@@ -134,7 +134,15 @@ def _cva_rows(results: AnalysisResults) -> list[tuple[str, str]]:
     cva = results.cva
     if cva is None:
         return [("CVA", "n/a")]
-    return [("CVA", _m(cva.cva)), ("DVA", _m(cva.dva)), ("BCVA", _m(cva.bcva))]
+    rows = [
+        ("CVA", _m(cva.cva)),
+        ("DVA", _m(cva.dva)),
+        ("BCVA", _m(cva.bcva)),
+        ("FVA", _m(cva.fva)),
+    ]
+    if cva.wwr_correlation:
+        rows.append(("Wrong-way corr.", f"{cva.wwr_correlation:+.2f}"))
+    return rows
 
 
 def _limit_rows(results: AnalysisResults) -> list[tuple[str, str]]:

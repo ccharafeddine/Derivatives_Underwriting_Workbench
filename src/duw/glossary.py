@@ -40,6 +40,15 @@ GLOSSARY: dict[str, str] = {
         "Debit Valuation Adjustment: the symmetric own-credit term — the value of "
         "our own possible default to us."
     ),
+    "FVA": (
+        "Funding Valuation Adjustment: the cost (or benefit) of funding the net "
+        "uncollateralized exposure over the trade's life, at a funding spread."
+    ),
+    "Wrong-way": (
+        "Wrong-way risk: exposure tending to rise as the counterparty's credit "
+        "worsens (positive exposure-credit correlation), which raises CVA. "
+        "Negative correlation is right-way risk and lowers it."
+    ),
     "LGD": "Loss Given Default: the fraction lost on default, equal to 1 - recovery.",
     "Recovery": "The fraction of exposure expected to be recovered on default.",
     "Distance-to-default": (

@@ -41,11 +41,13 @@ class CvaTab(QWidget):
         if cva is None:
             self.table.set_metrics([])
             return
-        self.table.set_metrics(
-            [
-                ("CVA", _money(cva.cva)),
-                ("DVA", _money(cva.dva)),
-                ("BCVA", _money(cva.bcva)),
-                ("LGD", f"{cva.lgd:.0%}" if not math.isnan(cva.lgd) else "—"),
-            ]
-        )
+        rows = [
+            ("CVA", _money(cva.cva)),
+            ("DVA", _money(cva.dva)),
+            ("BCVA", _money(cva.bcva)),
+            ("FVA", _money(cva.fva)),
+            ("LGD", f"{cva.lgd:.0%}" if not math.isnan(cva.lgd) else "—"),
+        ]
+        if cva.wwr_correlation:
+            rows.append(("Wrong-way corr.", f"{cva.wwr_correlation:+.2f}"))
+        self.table.set_metrics(rows)

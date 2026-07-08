@@ -24,6 +24,8 @@ KEY_MC_PATHS = "mc/n_paths"
 KEY_MC_STEPS = "mc/n_steps"
 KEY_MC_SEED = "mc/seed"
 KEY_LGD = "credit/lgd"
+KEY_FUNDING_BPS = "credit/funding_spread_bps"
+KEY_WWR = "credit/wwr_correlation"
 KEY_UPDATE_CHECK = "updates/check_on_startup"
 
 DEFAULTS: dict[str, Any] = {
@@ -32,6 +34,8 @@ DEFAULTS: dict[str, Any] = {
     KEY_MC_STEPS: 12,
     KEY_MC_SEED: 12345,
     KEY_LGD: 0.6,
+    KEY_FUNDING_BPS: 0.0,
+    KEY_WWR: 0.0,
     KEY_UPDATE_CHECK: False,
 }
 
