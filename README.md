@@ -17,6 +17,30 @@ analysis.
 
 ---
 
+## Screenshots
+
+The core output — expected exposure, the PFE 95/99 cone, and peak PFE for a
+proposed 5-year payer swap against a synthetic counterparty:
+
+![Exposure profile](docs/images/exposure.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/trade.png" alt="Trade input tab"><br><b>Trade</b> — term-sheet entry, fields switch by product (IRS / FX / CDS)</td>
+    <td width="50%"><img src="docs/images/counterparty.png" alt="Counterparty tab"><br><b>Counterparty</b> — financials that feed the Merton and Altman models</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/collateral.png" alt="Collateral tab"><br><b>Collateral</b> — CSA effect on exposure with editable inputs</td>
+    <td><img src="docs/images/cva.png" alt="CVA tab"><br><b>CVA</b> — CVA / DVA / BCVA and the per-interval contributions</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/limits.png" alt="Limits tab"><br><b>Limits</b> — utilization and headroom against the counterparty line</td>
+    <td><img src="docs/images/memo.png" alt="Memo tab"><br><b>Memo</b> — the underwriting memo with HTML / PDF / PPTX export</td>
+  </tr>
+</table>
+
+---
+
 ## What it does
 
 A corporate derivatives underwriting desk answers one question for every
