@@ -66,18 +66,28 @@ def check_limit(
 
     proposed_peak = engine.profile_from_cube(proposed_cube, grid).peak_pfe
     current_peak = engine.profile_from_cube(existing_cube, grid).peak_pfe
-    incremental = proposed_peak - current_peak
+    return limit_check_from_peaks(limit_amount, current_peak, proposed_peak)
 
-    utilization = proposed_peak / limit_amount if limit_amount > 0.0 else float("inf")
-    headroom = limit_amount - proposed_peak
-    breach = utilization > 1.0
 
+def limit_check_from_peaks(
+    limit_amount: float, current_peak_pfe: float, proposed_peak_pfe: float
+) -> LimitCheck:
+    """Assemble a :class:`LimitCheck` from precomputed peak-PFE figures.
+
+    Shared by :func:`check_limit` and the pipeline orchestrator so the
+    utilization / headroom / breach reconciliation lives in one place.
+    """
+    incremental = proposed_peak_pfe - current_peak_pfe
+    utilization = (
+        proposed_peak_pfe / limit_amount if limit_amount > 0.0 else float("inf")
+    )
+    headroom = limit_amount - proposed_peak_pfe
     return LimitCheck(
         limit=limit_amount,
-        current_peak_pfe=current_peak,
-        proposed_peak_pfe=proposed_peak,
+        current_peak_pfe=current_peak_pfe,
+        proposed_peak_pfe=proposed_peak_pfe,
         incremental_peak_pfe=incremental,
         utilization=utilization,
         headroom=headroom,
-        breach=breach,
+        breach=utilization > 1.0,
     )
