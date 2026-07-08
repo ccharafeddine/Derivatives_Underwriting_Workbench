@@ -50,7 +50,8 @@ class ScenarioSpec:
 
 
 def _twist(tenor: float, t_min: float, t_max: float, steepen_bps: float) -> float:
-    """Linear twist in decimals: ``-steepen/2`` at ``t_min``, ``+steepen/2`` at ``t_max``."""
+    """Linear twist in decimals: ``-steepen/2`` at the short end, ``+steepen/2``
+    at the long end."""
     if steepen_bps == 0.0 or t_max <= t_min:
         return 0.0
     frac = (tenor - t_min) / (t_max - t_min)  # 0 at short end, 1 at long end
