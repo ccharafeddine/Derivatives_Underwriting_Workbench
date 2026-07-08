@@ -122,8 +122,15 @@ class ExposureEngine:
         time_grid: tuple[float, ...],
         n_paths: int,
         seed: int,
+        trades: tuple[Trade, ...] | None = None,
     ) -> np.ndarray:
-        """Return the net-MtM cube, shape ``(n_paths, len(time_grid))``."""
+        """Return the net-MtM cube, shape ``(n_paths, len(time_grid))``.
+
+        ``trades`` defaults to the whole netting set. Passing a subset reprices
+        just those trades on the *same* simulated factor paths (the seed and the
+        engine's factor set are unchanged), which is what makes an incremental
+        exposure comparison consistent scenario-by-scenario.
+        """
         from duw.risk.simulators import (
             simulate_credit_factor,
             simulate_fx_spot,
@@ -179,7 +186,7 @@ class ExposureEngine:
                     for issuer in self._issuers
                 }
                 spots = {pair: fx_paths[pair][p, k] for pair in self._fx_pairs}
-                cube[p, k] = self._net_mtm(float(t), curves, survivals, spots)
+                cube[p, k] = self._net_mtm(float(t), curves, survivals, spots, trades)
         return cube
 
     def _curve_args(
@@ -206,9 +213,11 @@ class ExposureEngine:
         curves: dict[str, DiscountCurve],
         survivals: dict[str, SurvivalCurve],
         spots: dict[str, float],
+        trades: tuple[Trade, ...] | None = None,
     ) -> float:
+        trade_list = self.netting_set.trades if trades is None else trades
         total = 0.0
-        for trade in self.netting_set.trades:
+        for trade in trade_list:
             total += self._price(trade, valuation_time, curves, survivals, spots)
         return total
 
