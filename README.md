@@ -90,7 +90,17 @@ the bilateral net (BCVA) are reported alongside.
 
 ![CVA tab](docs/images/cva.png)
 
-### 7. Memo
+### 7. Scenario
+
+Stress test the proposed trade. Apply market shocks — a parallel rate shift, a
+curve steepener/flattener, an FX move, and credit-spread widening (with named
+presets like *Risk-off* and *Credit crunch*) — and re-run to compare base vs
+stressed exposure, CVA, and limit utilization side by side, with the two
+exposure profiles overlaid.
+
+![Scenario tab](docs/images/scenario.png)
+
+### 8. Memo
 
 Generate a one-page underwriting memo: trade summary, counterparty snapshot,
 exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
@@ -99,7 +109,7 @@ engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
 ![Memo tab](docs/images/memo.png)
 
-### 8. Pipeline
+### 9. Pipeline
 
 Track multiple transactions through their approval stages — Requested → Under
 review → Credit approved → Documented → Executed — since underwriting means

@@ -158,6 +158,52 @@ def collateral_figure(collateral: CollateralResult | None) -> go.Figure:
     return _base_layout(fig, "Collateral effect on expected exposure")
 
 
+def scenario_figure(
+    base: ExposureProfile | None, stressed: ExposureProfile | None
+) -> go.Figure:
+    """Base vs stressed exposure — EE and PFE(95) overlaid."""
+    if base is None or stressed is None or not base.time_grid:
+        return _placeholder("Run a base analysis, then a stressed scenario.")
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=list(base.time_grid),
+            y=list(base.pfe_95),
+            name="Base PFE 95%",
+            mode="lines",
+            line=dict(color=_UNCOLLAT, width=1.5, dash="dot"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(stressed.time_grid),
+            y=list(stressed.pfe_95),
+            name="Stressed PFE 95%",
+            mode="lines",
+            line=dict(color=_PFE99, width=1.5, dash="dot"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(base.time_grid),
+            y=list(base.ee),
+            name="Base EE",
+            mode="lines",
+            line=dict(color=_EE, width=2.5),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=list(stressed.time_grid),
+            y=list(stressed.ee),
+            name="Stressed EE",
+            mode="lines",
+            line=dict(color=_BREACH, width=2.5),
+        )
+    )
+    return _base_layout(fig, "Base vs stressed exposure")
+
+
 def cva_figure(cva: CVAResult | None) -> go.Figure:
     """Per-interval CVA contributions over time, titled with the totals."""
     if cva is None or not cva.time_grid:

@@ -39,6 +39,7 @@ from duw.domain.instruments import NettingSet, Trade
 from duw.domain.results import AnalysisResults
 from duw.pipeline.orchestrator import RunConfig
 from duw.pipeline.worker import PipelineWorker, create_worker_thread
+from duw.risk.scenarios import ScenarioSpec, apply_scenario
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
 from duw.ui.dialogs import SettingsDialog, show_about
@@ -49,12 +50,13 @@ from duw.ui.tabs.exposure_tab import ExposureTab
 from duw.ui.tabs.limits_tab import LimitsTab
 from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
+from duw.ui.tabs.scenario_tab import ScenarioTab
 from duw.ui.tabs.trade_tab import TradeTab
 from duw.ui.theme import THEMES, apply_theme
 from duw.ui.update_check import check_async
 from duw.updates import UpdateInfo
 
-# The eight workflow tabs, in the order a run flows through them.
+# The workflow tabs, in the order a run flows through them.
 TAB_NAMES: tuple[str, ...] = (
     "Trade",
     "Counterparty",
@@ -62,6 +64,7 @@ TAB_NAMES: tuple[str, ...] = (
     "Limits",
     "Collateral",
     "CVA",
+    "Scenario",
     "Memo",
     "Pipeline",
 )
@@ -82,6 +85,8 @@ class MainWindow(QMainWindow):
         self.store = store or DealStore(default_deal_store_path())
         self._worker: PipelineWorker | None = None
         self._thread = None
+        self._run_stressed = False
+        self._last_inputs: tuple | None = None
         self.results: AnalysisResults | None = None
 
         self.trade_tab = TradeTab(self.app_state)
@@ -90,6 +95,8 @@ class MainWindow(QMainWindow):
         self.limits_tab = LimitsTab()
         self.collateral_tab = CollateralTab()
         self.cva_tab = CvaTab()
+        self.scenario_tab = ScenarioTab()
+        self.scenario_tab.stressedRunRequested.connect(self._on_stressed_run)
         self.memo_tab = MemoTab()
         self.pipeline_tab = PipelineTab(self.store)
         self.pipeline_tab.reopenRequested.connect(self._on_reopen)
@@ -116,6 +123,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.limits_tab, "Limits")
         self.tabs.addTab(self.collateral_tab, "Collateral")
         self.tabs.addTab(self.cva_tab, "CVA")
+        self.tabs.addTab(self.scenario_tab, "Scenario")
         self.tabs.addTab(self.memo_tab, "Memo")
         self.tabs.addTab(self.pipeline_tab, "Pipeline")
         self.setCentralWidget(self.tabs)
@@ -213,14 +221,33 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Reopening deal: {deal.name}…")
         self._start_run(counterparty, existing_set, trade, config)
 
+    def _on_stressed_run(self, spec: ScenarioSpec) -> None:
+        """Re-run the last base inputs against a shocked snapshot."""
+        if self._last_inputs is None or self._thread is not None:
+            return
+        counterparty, existing_set, trade, config = self._last_inputs
+        shocked = apply_scenario(self.app_state.snapshot, spec)
+        self.statusBar().showMessage(f"Running stressed scenario: {spec.name}…")
+        self._start_run(
+            counterparty, existing_set, trade, config, snapshot=shocked, stressed=True
+        )
+
     def _start_run(
         self,
         counterparty: Counterparty,
         existing_set: NettingSet,
         trade: Trade,
         config: RunConfig,
+        *,
+        snapshot=None,
+        stressed: bool = False,
     ) -> None:
-        self._worker = PipelineWorker(counterparty, existing_set, trade, config)
+        self._run_stressed = stressed
+        if not stressed:
+            self._last_inputs = (counterparty, existing_set, trade, config)
+        self._worker = PipelineWorker(
+            counterparty, existing_set, trade, config, snapshot=snapshot
+        )
         self._thread = create_worker_thread(self._worker)
         self._worker.progress.connect(self._on_progress)
         self._worker.finished.connect(self._on_finished)
@@ -228,6 +255,7 @@ class MainWindow(QMainWindow):
         self._thread.finished.connect(self._on_thread_finished)
 
         self.run_action.setEnabled(False)
+        self.scenario_tab.set_busy(True)
         self.progress.setValue(0)
         self.progress.setVisible(True)
         self.statusBar().showMessage("Running analysis…")
@@ -238,11 +266,16 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(message)
 
     def _on_finished(self, results: AnalysisResults) -> None:
+        if self._run_stressed:
+            self.scenario_tab.set_stressed(results)
+            self.statusBar().showMessage("Stressed scenario complete.")
+            return
         self.results = results
         self.exposure_tab.set_results(results)
         self.limits_tab.set_results(results)
         self.collateral_tab.set_results(results)
         self.cva_tab.set_results(results)
+        self.scenario_tab.set_base(results, self._last_inputs is not None)
         self.memo_tab.set_results(results)
         self.save_deal_action.setEnabled(True)
         self.tabs.setCurrentWidget(self.exposure_tab)
@@ -256,6 +289,7 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(False)
         self._thread = None
         self._worker = None
+        self.scenario_tab.set_busy(False)
         self._update_run_enabled()
 
     # -- deal persistence -------------------------------------------------- #

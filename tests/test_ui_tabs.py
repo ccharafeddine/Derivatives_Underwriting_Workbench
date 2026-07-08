@@ -147,9 +147,8 @@ def test_counterparty_tab_pushes_to_app_state(qapp) -> None:
 # --------------------------------------------------------------------------- #
 # Main window integration
 # --------------------------------------------------------------------------- #
-def test_main_window_builds_with_eight_tabs(qapp) -> None:
+def test_main_window_builds_all_tabs(qapp) -> None:
     window = MainWindow()
-    assert window.tabs.count() == 8
     labels = [window.tabs.tabText(i) for i in range(window.tabs.count())]
     assert labels == [
         "Trade",
@@ -158,6 +157,7 @@ def test_main_window_builds_with_eight_tabs(qapp) -> None:
         "Limits",
         "Collateral",
         "CVA",
+        "Scenario",
         "Memo",
         "Pipeline",
     ]
