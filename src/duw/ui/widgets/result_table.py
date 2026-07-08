@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
 )
 
+from duw.glossary import lookup
+
 
 class MetricsTable(QTableWidget):
     """Read-only ``(metric, value)`` table."""
@@ -30,8 +32,16 @@ class MetricsTable(QTableWidget):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
 
     def set_metrics(self, rows: Sequence[tuple[str, str]]) -> None:
-        """Replace the table contents with ``(metric, value)`` rows."""
+        """Replace the table contents with ``(metric, value)`` rows.
+
+        Each metric cell gets a plain-English tooltip from the glossary when the
+        label matches a known term, so the metrics are self-explaining on hover.
+        """
         self.setRowCount(len(rows))
         for r, (metric, value) in enumerate(rows):
-            self.setItem(r, 0, QTableWidgetItem(str(metric)))
+            metric_item = QTableWidgetItem(str(metric))
+            definition = lookup(str(metric))
+            if definition is not None:
+                metric_item.setToolTip(definition)
+            self.setItem(r, 0, metric_item)
             self.setItem(r, 1, QTableWidgetItem(str(value)))

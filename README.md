@@ -179,11 +179,14 @@ ruff check . && ruff format .
 ```
 
 The app launches against the bundled synthetic market snapshot and seed
-counterparties, so it works with no configuration and no network access. Monte
-Carlo settings (paths, seed, default LGD) live under **Settings → Preferences**,
-the theme toggles under **View → Theme**, and the disclaimer is in **Help →
-About**. Saved deals persist locally and reopen with the same seed, so any run
-reproduces exactly.
+counterparties, so it works with no configuration and no network access. New to
+the workflow? **Help → Load Example** loads a ready-made deal (investment-grade
+swap, distressed-name CDS, a limit-breaching trade, a netted book) you can run in
+one click, **Help → Glossary** explains every term, and each metric shows a
+plain-English tooltip on hover. Monte Carlo settings (paths, seed, default LGD)
+live under **Settings → Preferences**, the theme toggles under **View → Theme**,
+and the disclaimer is in **Help → About**. Saved deals persist locally and reopen
+with the same seed, so any run reproduces exactly.
 
 To build a native desktop binary (`.msi` / `.dmg`), see
 [PACKAGING.md](PACKAGING.md).

@@ -145,6 +145,15 @@ class CounterpartyTab(QWidget):
         self.fin_currency.currentIndexChanged.connect(self._refresh)
 
     # -- selection --------------------------------------------------------- #
+    def select_seed(self, counterparty_id: str) -> bool:
+        """Select the seed counterparty with ``counterparty_id`` if present."""
+        for i in range(self.selector.count()):
+            cp = self.selector.itemData(i)
+            if cp is not None and cp.counterparty_id == counterparty_id:
+                self.selector.setCurrentIndex(i)
+                return True
+        return False
+
     def _on_selection_changed(self) -> None:
         self._populate_from_selection()
         self._refresh()

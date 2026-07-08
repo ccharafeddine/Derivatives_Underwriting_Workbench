@@ -37,12 +37,13 @@ from duw.config import (
 from duw.domain.counterparty import Counterparty
 from duw.domain.instruments import NettingSet, Trade
 from duw.domain.results import AnalysisResults
+from duw.examples import Example, examples
 from duw.pipeline.orchestrator import RunConfig
 from duw.pipeline.worker import PipelineWorker, create_worker_thread
 from duw.risk.scenarios import ScenarioSpec, apply_scenario
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
-from duw.ui.dialogs import SettingsDialog, show_about
+from duw.ui.dialogs import SettingsDialog, show_about, show_glossary
 from duw.ui.tabs.collateral_tab import CollateralTab
 from duw.ui.tabs.counterparty_tab import CounterpartyTab
 from duw.ui.tabs.cva_tab import CvaTab
@@ -167,8 +168,21 @@ class MainWindow(QMainWindow):
         prefs_action.triggered.connect(self._on_preferences)
         settings_menu.addAction(prefs_action)
 
-        # Help menu — updates and About / disclaimer.
+        # Help menu — examples, glossary, updates, About / disclaimer.
         help_menu = menu_bar.addMenu("&Help")
+        examples_menu = help_menu.addMenu("Load &Example")
+        for example in examples():
+            action = QAction(example.name, self)
+            action.setToolTip(example.description)
+            action.triggered.connect(
+                lambda _checked, ex=example: self._load_example(ex)
+            )
+            examples_menu.addAction(action)
+        examples_menu.setToolTipsVisible(True)
+        glossary_action = QAction("&Glossary", self)
+        glossary_action.triggered.connect(lambda: show_glossary(self))
+        help_menu.addAction(glossary_action)
+        help_menu.addSeparator()
         updates_action = QAction("Check for &Updates…", self)
         updates_action.triggered.connect(self._on_check_updates)
         help_menu.addAction(updates_action)
@@ -317,6 +331,20 @@ class MainWindow(QMainWindow):
             return
         self.pipeline_tab.add_deal(deal)
         self.statusBar().showMessage(f"Saved deal: {deal.name}")
+
+    # -- examples ---------------------------------------------------------- #
+    def _load_example(self, example: Example) -> None:
+        """Load a preconfigured example deal into the input tabs."""
+        if not self.counterparty_tab.select_seed(example.counterparty_id):
+            return
+        self.app_state.clear_book()
+        for trade in example.book:
+            self.app_state.add_to_book(trade)
+        self.trade_tab.load_trade(example.trade)
+        self.tabs.setCurrentWidget(self.trade_tab)
+        self.statusBar().showMessage(
+            f"Loaded example: {example.name} — press Run Analysis (Ctrl+R)."
+        )
 
     # -- updates ----------------------------------------------------------- #
     def _on_check_updates(self) -> None:

@@ -76,6 +76,14 @@ def _frequency_combo(default: Frequency) -> QComboBox:
     return combo
 
 
+def _set_combo_data(combo: QComboBox, value: object) -> None:
+    """Select the combo item whose stored data equals ``value`` (by value)."""
+    for i in range(combo.count()):
+        if str(combo.itemData(i)) == str(value):
+            combo.setCurrentIndex(i)
+            return
+
+
 class TradeTab(QWidget):
     """Term-sheet form producing a validated :class:`Trade`."""
 
@@ -372,6 +380,44 @@ class TradeTab(QWidget):
             ),
             "",
         )
+
+    def load_trade(self, trade: Trade) -> None:
+        """Populate the form from an existing :class:`Trade` (e.g. an example)."""
+        self.trade_id.setText(trade.trade_id)
+        self.notional.setValue(trade.notional)
+        self.trade_date.setDate(
+            QDate(trade.trade_date.year, trade.trade_date.month, trade.trade_date.day)
+        )
+        self.maturity_date.setDate(
+            QDate(
+                trade.maturity_date.year,
+                trade.maturity_date.month,
+                trade.maturity_date.day,
+            )
+        )
+        if isinstance(trade, IRS):
+            self.product.setCurrentIndex(0)
+            self.currency.setCurrentText(trade.currency)
+            self.irs_fixed_rate.setValue(trade.fixed_rate * 100.0)
+            _set_combo_data(self.irs_direction, trade.direction)
+            _set_combo_data(self.irs_fixed_freq, trade.fixed_frequency)
+            _set_combo_data(self.irs_float_freq, trade.float_frequency)
+            self.irs_float_spread.setValue(trade.float_spread * 1e4)
+        elif isinstance(trade, FXForward):
+            self.product.setCurrentIndex(1)
+            self.fx_base.setCurrentText(trade.base_currency)
+            self.fx_quote.setCurrentText(trade.quote_currency)
+            self.fx_rate.setValue(trade.contract_rate)
+            _set_combo_data(self.fx_direction, trade.direction)
+        elif isinstance(trade, CDS):
+            self.product.setCurrentIndex(2)
+            self.currency.setCurrentText(trade.currency)
+            self.cds_reference.setText(trade.reference_entity)
+            _set_combo_data(self.cds_direction, trade.direction)
+            self.cds_spread.setValue(trade.spread * 1e4)
+            _set_combo_data(self.cds_premium_freq, trade.premium_frequency)
+            self.cds_recovery.setValue(trade.recovery_rate * 100.0)
+        self._refresh()
 
     def _counterparty_id(self) -> str:
         if self._app_state is not None and self._app_state.counterparty is not None:

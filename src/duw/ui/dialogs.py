@@ -11,6 +11,7 @@ from __future__ import annotations
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QDialog,
     QDialogButtonBox,
@@ -18,10 +19,13 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -35,6 +39,7 @@ from duw.config import (
     KEY_UPDATE_CHECK,
     AppSettings,
 )
+from duw.glossary import GLOSSARY
 from duw.reports.interpreter import DISCLAIMER
 from duw.ui.update_check import check_async
 from duw.updates import UpdateInfo
@@ -153,3 +158,38 @@ def about_text() -> str:
 def show_about(parent: QWidget | None = None) -> None:
     """Show the About / disclaimer dialog."""
     QMessageBox.about(parent, "About Derivatives Underwriting Workbench", about_text())
+
+
+def build_glossary_dialog(parent: QWidget | None = None) -> QDialog:
+    """Build (without showing) a dialog listing the glossary terms."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("Glossary")
+    dialog.resize(660, 500)
+
+    table = QTableWidget(len(GLOSSARY), 2, dialog)
+    table.setHorizontalHeaderLabels(["Term", "Definition"])
+    table.verticalHeader().setVisible(False)
+    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+    table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+    table.setWordWrap(True)
+    header = table.horizontalHeader()
+    header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+    for row, (term, definition) in enumerate(sorted(GLOSSARY.items())):
+        table.setItem(row, 0, QTableWidgetItem(term))
+        table.setItem(row, 1, QTableWidgetItem(definition))
+    table.resizeRowsToContents()
+
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+    buttons.rejected.connect(dialog.reject)
+    buttons.accepted.connect(dialog.accept)
+
+    layout = QVBoxLayout(dialog)
+    layout.addWidget(table)
+    layout.addWidget(buttons)
+    return dialog
+
+
+def show_glossary(parent: QWidget | None = None) -> None:
+    """Show the glossary dialog."""
+    build_glossary_dialog(parent).exec()
