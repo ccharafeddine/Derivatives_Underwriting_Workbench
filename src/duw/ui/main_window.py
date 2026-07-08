@@ -14,8 +14,9 @@ heavy computation happens on the worker thread. Qt lives here.
 
 from __future__ import annotations
 
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
+    QApplication,
     QInputDialog,
     QMainWindow,
     QMessageBox,
@@ -23,6 +24,14 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
+from duw.config import (
+    KEY_LGD,
+    KEY_MC_PATHS,
+    KEY_MC_SEED,
+    KEY_MC_STEPS,
+    KEY_THEME,
+    AppSettings,
+)
 from duw.domain.counterparty import Counterparty
 from duw.domain.instruments import NettingSet, Trade
 from duw.domain.results import AnalysisResults
@@ -30,6 +39,7 @@ from duw.pipeline.orchestrator import RunConfig
 from duw.pipeline.worker import PipelineWorker, create_worker_thread
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
+from duw.ui.dialogs import SettingsDialog, show_about
 from duw.ui.tabs.collateral_tab import CollateralTab
 from duw.ui.tabs.counterparty_tab import CounterpartyTab
 from duw.ui.tabs.cva_tab import CvaTab
@@ -38,6 +48,7 @@ from duw.ui.tabs.limits_tab import LimitsTab
 from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.trade_tab import TradeTab
+from duw.ui.theme import THEMES, apply_theme
 
 # The eight workflow tabs, in the order a run flows through them.
 TAB_NAMES: tuple[str, ...] = (
@@ -51,11 +62,6 @@ TAB_NAMES: tuple[str, ...] = (
     "Pipeline",
 )
 
-# Monte Carlo settings for a UI-triggered run (made configurable in a later
-# session); modest enough to stay responsive with the progress bar.
-_RUN_PATHS = 2000
-_RUN_STEPS = 12
-
 
 class MainWindow(QMainWindow):
     """Top-level window: menu bar, tabbed workflow, and the run wiring."""
@@ -68,6 +74,7 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
 
         self.app_state = app_state or AppState()
+        self.settings = AppSettings()
         self.store = store or DealStore(default_deal_store_path())
         self._worker: PipelineWorker | None = None
         self._thread = None
@@ -123,8 +130,31 @@ class MainWindow(QMainWindow):
         file_menu.addAction(quit_action)
 
         menu_bar.addMenu("&Edit")
-        menu_bar.addMenu("&View")
-        menu_bar.addMenu("&Settings")
+
+        # View menu — theme selection (persisted).
+        view_menu = menu_bar.addMenu("&View")
+        theme_menu = view_menu.addMenu("&Theme")
+        self._theme_group = QActionGroup(self)
+        self._theme_group.setExclusive(True)
+        current_theme = self.settings.get_str(KEY_THEME)
+        for theme in THEMES:
+            action = QAction(theme.title(), self, checkable=True)
+            action.setChecked(theme == current_theme)
+            action.triggered.connect(lambda _checked, t=theme: self._set_theme(t))
+            self._theme_group.addAction(action)
+            theme_menu.addAction(action)
+
+        # Settings menu — preferences.
+        settings_menu = menu_bar.addMenu("&Settings")
+        prefs_action = QAction("&Preferences…", self)
+        prefs_action.triggered.connect(self._on_preferences)
+        settings_menu.addAction(prefs_action)
+
+        # Help menu — About / disclaimer.
+        help_menu = menu_bar.addMenu("&Help")
+        about_action = QAction("&About", self)
+        about_action.triggered.connect(lambda: show_about(self))
+        help_menu.addAction(about_action)
 
     def _build_status_bar(self) -> None:
         self.progress = QProgressBar()
@@ -151,8 +181,16 @@ class MainWindow(QMainWindow):
         if not self.app_state.is_ready() or self._thread is not None:
             return
         counterparty, existing_set, trade = self.app_state.run_inputs()
-        config = RunConfig(n_paths=_RUN_PATHS, n_steps=_RUN_STEPS)
-        self._start_run(counterparty, existing_set, trade, config)
+        self._start_run(counterparty, existing_set, trade, self._run_config())
+
+    def _run_config(self) -> RunConfig:
+        """Build a RunConfig from the persisted settings."""
+        return RunConfig(
+            n_paths=self.settings.get_int(KEY_MC_PATHS),
+            n_steps=self.settings.get_int(KEY_MC_STEPS),
+            seed=self.settings.get_int(KEY_MC_SEED),
+            lgd=self.settings.get_float(KEY_LGD),
+        )
 
     def _on_reopen(self, deal: Deal) -> None:
         """Re-run a saved deal to repopulate the analytics tabs."""
@@ -232,3 +270,14 @@ class MainWindow(QMainWindow):
             return
         self.pipeline_tab.add_deal(deal)
         self.statusBar().showMessage(f"Saved deal: {deal.name}")
+
+    # -- preferences and theme --------------------------------------------- #
+    def _on_preferences(self) -> None:
+        SettingsDialog(self.settings, self).exec()
+
+    def _set_theme(self, theme: str) -> None:
+        self.settings.set(KEY_THEME, theme)
+        self.settings.sync()
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, theme)
