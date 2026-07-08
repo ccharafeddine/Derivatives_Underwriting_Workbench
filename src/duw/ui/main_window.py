@@ -34,6 +34,7 @@ from duw.ui.tabs.counterparty_tab import CounterpartyTab
 from duw.ui.tabs.cva_tab import CvaTab
 from duw.ui.tabs.exposure_tab import ExposureTab
 from duw.ui.tabs.limits_tab import LimitsTab
+from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.trade_tab import TradeTab
 
 # The eight workflow tabs, in the order a run flows through them.
@@ -49,7 +50,7 @@ TAB_NAMES: tuple[str, ...] = (
 )
 
 # Tabs still awaiting their real widgets (filled in later sessions).
-_PLACEHOLDER_TABS: tuple[str, ...] = ("Memo", "Pipeline")
+_PLACEHOLDER_TABS: tuple[str, ...] = ("Pipeline",)
 
 # Monte Carlo settings for a UI-triggered run (made configurable in a later
 # session); modest enough to stay responsive with the progress bar.
@@ -87,6 +88,7 @@ class MainWindow(QMainWindow):
         self.limits_tab = LimitsTab()
         self.collateral_tab = CollateralTab()
         self.cva_tab = CvaTab()
+        self.memo_tab = MemoTab()
 
         self._build_tabs()
         self._build_menu_bar()
@@ -105,6 +107,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.limits_tab, "Limits")
         self.tabs.addTab(self.collateral_tab, "Collateral")
         self.tabs.addTab(self.cva_tab, "CVA")
+        self.tabs.addTab(self.memo_tab, "Memo")
         for name in _PLACEHOLDER_TABS:
             self.tabs.addTab(_placeholder_tab(name), name)
         self.setCentralWidget(self.tabs)
@@ -176,6 +179,7 @@ class MainWindow(QMainWindow):
         self.limits_tab.set_results(results)
         self.collateral_tab.set_results(results)
         self.cva_tab.set_results(results)
+        self.memo_tab.set_results(results)
         self.tabs.setCurrentWidget(self.exposure_tab)
         self.statusBar().showMessage("Analysis complete.")
 

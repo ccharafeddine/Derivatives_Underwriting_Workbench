@@ -31,6 +31,8 @@ from duw.domain.instruments import NettingSet, Trade
 from duw.domain.market import MarketSnapshot
 from duw.domain.results import AnalysisResults, MemoResult
 from duw.pricing.curves import DiscountCurve, SurvivalCurve
+from duw.reports.interpreter import recommend
+from duw.reports.memo import write_memo_html
 from duw.risk.collateral import CSA, compute_collateral
 from duw.risk.cva import (
     compute_bcva,
@@ -134,6 +136,7 @@ class Orchestrator:
 
         # Step 2 — assess counterparty credit.
         self._emit(2, _STEPS[2])
+        results.counterparty = counterparty
         profile = assess_counterparty(counterparty, snapshot, horizon=cfg.horizon)
         results.credit_profile = profile
         results.log(
@@ -202,16 +205,25 @@ class Orchestrator:
             + (" — BREACH" if limits.breach else "")
         )
 
-        # Step 10 — interpret + memo (hook for Session 10).
+        # Step 10 — interpret and produce the recommendation.
         self._emit(10, _STEPS[10])
-        results.memo = MemoResult()  # populated by the reports session
-        results.log("Memo generation is deferred to a later session")
+        rec = recommend(results)
+        results.memo = MemoResult(recommendation=rec.verdict)
+        results.log(f"Recommendation: {rec.verdict}")
 
-        # Step 11 — save the run config for reproducibility.
+        # Step 11 — save outputs for reproducibility. When an output directory is
+        # given, save the run config and write the HTML memo (fast, chart-inline);
+        # the PDF/PPTX are generated on demand from the UI.
         self._emit(11, _STEPS[11])
         if output_dir is not None:
             saved = self.save_run_config(results, output_dir)
-            results.log(f"Saved run config to {saved}")
+            html_path = write_memo_html(
+                results, Path(output_dir) / "underwriting_memo.html"
+            )
+            results.memo = MemoResult(
+                html_path=str(html_path), recommendation=rec.verdict
+            )
+            results.log(f"Saved run config and memo to {saved.parent}")
 
         return results
 

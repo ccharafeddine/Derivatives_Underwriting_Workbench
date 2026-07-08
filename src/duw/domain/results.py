@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from math import nan
 from typing import Any
 
-from duw.domain.counterparty import CreditProfile
+from duw.domain.counterparty import Counterparty, CreditProfile
 from duw.domain.instruments import NettingSet
 from duw.domain.market import MarketSnapshot
 
@@ -122,6 +122,7 @@ class AnalysisResults:
 
     run_config: dict[str, Any] = field(default_factory=dict)
     snapshot: MarketSnapshot | None = None
+    counterparty: Counterparty | None = None
     netting_set: NettingSet | None = None
     credit_profile: CreditProfile | None = None
     # The net-MtM cube (paths x grid dates) kept so the UI can recompute
