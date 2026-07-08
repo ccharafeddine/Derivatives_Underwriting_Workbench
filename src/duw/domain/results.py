@@ -124,6 +124,10 @@ class AnalysisResults:
     snapshot: MarketSnapshot | None = None
     netting_set: NettingSet | None = None
     credit_profile: CreditProfile | None = None
+    # The net-MtM cube (paths x grid dates) kept so the UI can recompute
+    # collateral for a new CSA without re-running the Monte Carlo. Typed loosely
+    # (a numpy array) to avoid a hard numpy annotation in the domain layer.
+    net_mtm_cube: Any = None
     exposure: ExposureProfile | None = None
     collateral: CollateralResult | None = None
     cva: CVAResult | None = None

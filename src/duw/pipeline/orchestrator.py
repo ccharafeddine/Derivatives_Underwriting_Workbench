@@ -152,6 +152,7 @@ class Orchestrator:
         )
         grid = engine.build_time_grid(cfg.n_steps)
         cube = engine.simulate_cube(grid, n_paths=cfg.n_paths, seed=cfg.seed)
+        results.net_mtm_cube = cube
         self._emit(4, _STEPS[4])
         self._emit(5, _STEPS[5])
         results.log(
