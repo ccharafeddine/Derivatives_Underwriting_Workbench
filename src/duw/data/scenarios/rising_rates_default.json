@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Rising rates and a defaulting industrial",
+    "description": "Three rounds. Rates grind higher while an industrial name (Acme) deteriorates and finally defaults, and a strong technology name (Globex) stays healthy. Approving Acme's payer swap without collateral leaves a real closeout loss when it defaults; requiring collateral removes it. Teaches why collateral terms decide the consequence, not the trade economics.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "See how a payer swap moves into the money as rates rise.",
+      "Watch a counterparty's CVA climb as its credit deteriorates.",
+      "Feel the closeout loss on an under-collateralized book at default.",
+      "Compare that loss against a collateralized book with the same trade."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "CP001",
+        "name": "Acme Manufacturing Corp",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 5200.0,
+          "total_liabilities": 3100.0,
+          "current_assets": 2100.0,
+          "current_liabilities": 1250.0,
+          "retained_earnings": 820.0,
+          "ebit": 610.0,
+          "sales": 4200.0,
+          "market_equity": 2600.0,
+          "equity_volatility": 0.32,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": [
+        {
+          "round": 1,
+          "spread_multiplier": 2.0,
+          "internal_rating": "B"
+        },
+        {
+          "round": 2,
+          "spread_multiplier": 4.0,
+          "internal_rating": "CCC"
+        }
+      ]
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "CP002",
+        "name": "Globex Technologies Inc",
+        "sector": "Technology",
+        "ticker": "GBX",
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 9800.0,
+          "total_liabilities": 4200.0,
+          "current_assets": 5100.0,
+          "current_liabilities": 1900.0,
+          "retained_earnings": 3100.0,
+          "ebit": 1850.0,
+          "sales": 7600.0,
+          "market_equity": 11200.0,
+          "equity_volatility": 0.28,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +150bp",
+        "rate_shift_bps": 150.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +300bp",
+        "rate_shift_bps": 300.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "D1-ACME-IRS",
+        "counterparty_id": "CP001",
+        "notional": 25000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "D2-GBX-IRS",
+        "counterparty_id": "CP002",
+        "notional": 10000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "CP001"
+    }
+  ]
+}

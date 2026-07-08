@@ -117,6 +117,7 @@ src/duw/
     counterparty.py     # Counterparty + CreditProfile
     results.py          # AnalysisResults + all sub-result dataclasses
   data/                 # bundled synthetic market snapshot + seed counterparties
+    scenarios/          # bundled teaching scenarios for the simulator (JSON)
   pricing/
     curves.py           # discount curve, interpolation, survival curve bootstrap
     irs.py  fx_forward.py  cds.py
@@ -149,6 +150,10 @@ src/duw/
     widgets/            # plotly view, result tables, shared controls
   store/
     deals.py            # deal-pipeline persistence (local SQLite or JSON)
+  scenario/             # role-play simulator backbone (headless; no Qt)
+    model.py            # Scenario / Decision / outcome frozen dataclasses
+    io.py               # human-authorable scenario JSON load/save + validation
+    engine.py           # ScenarioEngine: steps rounds, orchestrates the pipeline
 tests/
 ```
 
