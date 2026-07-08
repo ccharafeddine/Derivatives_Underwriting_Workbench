@@ -13,12 +13,12 @@ Trade → counterparty credit (Merton / Altman / rating) → Monte Carlo exposur
 underwriting memo (HTML / PDF / PPTX) → deal pipeline. PySide6 desktop UI,
 background worker, reproducible runs, 139 headless tests, CI on Python 3.11/3.12.
 
-## v2 — toward a packaged release
+## v2 — shipped (v0.2.0)
 
-Sequenced by impact. Each item keeps the gates green (ruff + headless pytest +
-CI) and ships with tests.
+All four tracks below are complete and released as **v0.2.0**. Each shipped with
+tests and green CI (ruff + headless pytest on Python 3.11/3.12).
 
-### 1. Portfolio book + scenario stress testing
+### 1. Portfolio book + scenario stress testing ✅
 
 - **Existing-trades book.** Build a real netting set of existing trades in the
   UI so the netting benefit and *incremental* limit logic (already implemented
@@ -29,7 +29,7 @@ CI) and ships with tests.
   base vs stressed exposure, CVA, and limit utilization side by side. The core
   "scenario sandbox" and the most analyst-real feature.
 
-### 2. Learn mode + guided examples
+### 2. Learn mode + guided examples ✅
 
 - Inline explanations of every metric (EE, EPE, PFE, CVA / DVA, DtD, CSA, MPoR)
   via info tooltips and a glossary panel.
@@ -37,7 +37,7 @@ CI) and ships with tests.
   breaching trade, a collateralized book) and a short first-run walkthrough, so
   the app is self-teaching for someone new to the workflow.
 
-### 3. Editable market data + live financials
+### 3. Editable market data + live financials ✅
 
 - In-app curve / FX / credit-spread editor so users test their own market
   scenarios and see how the drivers move exposure and CVA.
@@ -45,7 +45,7 @@ CI) and ships with tests.
   real public-company ticker can populate the financials for Merton / Altman,
   always degrading to synthetic data.
 
-### 4. Packaged release
+### 4. Packaged release ✅
 
 - A working PyInstaller build (bundling QtWebEngine and the synthetic data is
   the tricky part), verified to launch and run a full analysis.
