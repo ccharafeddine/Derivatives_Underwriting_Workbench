@@ -1,20 +1,26 @@
 """Settings and About dialogs.
 
-``SettingsDialog`` edits the Monte Carlo and credit defaults backed by
-:class:`AppSettings`. ``show_about`` shows the version and the full disclaimer,
-sourced from the single canonical :data:`DISCLAIMER` constant so the app and the
-generated memos never drift.
+``SettingsDialog`` edits the Monte Carlo and credit defaults and the update-check
+preference, backed by :class:`AppSettings`. ``show_about`` shows the version and
+the full disclaimer, sourced from the single canonical :data:`DISCLAIMER`
+constant so the app and the generated memos never drift.
 """
 
 from __future__ import annotations
 
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -26,18 +32,23 @@ from duw.config import (
     KEY_MC_PATHS,
     KEY_MC_SEED,
     KEY_MC_STEPS,
+    KEY_UPDATE_CHECK,
     AppSettings,
 )
 from duw.reports.interpreter import DISCLAIMER
+from duw.ui.update_check import check_async
+from duw.updates import UpdateInfo
 
 
 class SettingsDialog(QDialog):
-    """Edit Monte Carlo paths / steps / seed and the default LGD."""
+    """Edit Monte Carlo defaults, LGD, and the update-check preference."""
 
     def __init__(self, settings: AppSettings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Preferences")
         self._settings = settings
+        self._update_signals = None
+        self._latest_url = ""
 
         self.paths = QSpinBox()
         self.paths.setRange(100, 200_000)
@@ -73,13 +84,57 @@ class SettingsDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)
+        layout.addWidget(self._build_updates_box())
         layout.addWidget(buttons)
 
+    def _build_updates_box(self) -> QGroupBox:
+        box = QGroupBox("Updates")
+        layout = QVBoxLayout(box)
+        self.check_on_startup = QCheckBox("Check for updates on startup")
+        self.check_on_startup.setChecked(self._settings.get_bool(KEY_UPDATE_CHECK))
+        layout.addWidget(self.check_on_startup)
+
+        row = QHBoxLayout()
+        self.check_now_btn = QPushButton("Check for updates now")
+        self.check_now_btn.clicked.connect(self._on_check_now)
+        self.open_releases_btn = QPushButton("View release")
+        self.open_releases_btn.setVisible(False)
+        self.open_releases_btn.clicked.connect(self._open_releases)
+        row.addWidget(self.check_now_btn)
+        row.addWidget(self.open_releases_btn)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.update_status = QLabel(f"Current version: {__version__}")
+        self.update_status.setObjectName("update_status")
+        self.update_status.setWordWrap(True)
+        layout.addWidget(self.update_status)
+        return box
+
+    # -- updates ----------------------------------------------------------- #
+    def _on_check_now(self) -> None:
+        self.check_now_btn.setEnabled(False)
+        self.open_releases_btn.setVisible(False)
+        self.update_status.setText("Checking for updates…")
+        self._update_signals = check_async(self._on_update_result)
+
+    def _on_update_result(self, info: UpdateInfo) -> None:
+        self.check_now_btn.setEnabled(True)
+        self.update_status.setText(info.message)
+        self._latest_url = info.url
+        self.open_releases_btn.setVisible(info.available)
+
+    def _open_releases(self) -> None:
+        if self._latest_url:
+            QDesktopServices.openUrl(QUrl(self._latest_url))
+
+    # -- persistence ------------------------------------------------------- #
     def _on_accept(self) -> None:
         self._settings.set(KEY_MC_PATHS, self.paths.value())
         self._settings.set(KEY_MC_STEPS, self.steps.value())
         self._settings.set(KEY_MC_SEED, self.seed.value())
         self._settings.set(KEY_LGD, self.lgd.value() / 100.0)
+        self._settings.set(KEY_UPDATE_CHECK, self.check_on_startup.isChecked())
         self._settings.sync()
         self.accept()
 

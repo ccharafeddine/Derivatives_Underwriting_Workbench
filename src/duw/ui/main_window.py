@@ -14,7 +14,8 @@ heavy computation happens on the worker thread. Qt lives here.
 
 from __future__ import annotations
 
-from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QAction, QActionGroup, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QInputDialog,
@@ -30,6 +31,7 @@ from duw.config import (
     KEY_MC_SEED,
     KEY_MC_STEPS,
     KEY_THEME,
+    KEY_UPDATE_CHECK,
     AppSettings,
 )
 from duw.domain.counterparty import Counterparty
@@ -49,6 +51,8 @@ from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.trade_tab import TradeTab
 from duw.ui.theme import THEMES, apply_theme
+from duw.ui.update_check import check_async
+from duw.updates import UpdateInfo
 
 # The eight workflow tabs, in the order a run flows through them.
 TAB_NAMES: tuple[str, ...] = (
@@ -97,6 +101,11 @@ class MainWindow(QMainWindow):
         self.app_state.tradeChanged.connect(self._update_run_enabled)
         self.app_state.counterpartyChanged.connect(self._update_run_enabled)
         self._update_run_enabled()
+
+        # Opt-in: check for updates on startup (off by default, offline-first).
+        self._update_signals = None
+        if self.settings.get_bool(KEY_UPDATE_CHECK):
+            self._update_signals = check_async(self._on_update_result_startup)
 
     # -- construction ------------------------------------------------------ #
     def _build_tabs(self) -> None:
@@ -150,8 +159,12 @@ class MainWindow(QMainWindow):
         prefs_action.triggered.connect(self._on_preferences)
         settings_menu.addAction(prefs_action)
 
-        # Help menu — About / disclaimer.
+        # Help menu — updates and About / disclaimer.
         help_menu = menu_bar.addMenu("&Help")
+        updates_action = QAction("Check for &Updates…", self)
+        updates_action.triggered.connect(self._on_check_updates)
+        help_menu.addAction(updates_action)
+        help_menu.addSeparator()
         about_action = QAction("&About", self)
         about_action.triggered.connect(lambda: show_about(self))
         help_menu.addAction(about_action)
@@ -270,6 +283,30 @@ class MainWindow(QMainWindow):
             return
         self.pipeline_tab.add_deal(deal)
         self.statusBar().showMessage(f"Saved deal: {deal.name}")
+
+    # -- updates ----------------------------------------------------------- #
+    def _on_check_updates(self) -> None:
+        self.statusBar().showMessage("Checking for updates…")
+        self._update_signals = check_async(self._on_update_result_manual)
+
+    def _on_update_result_manual(self, info: UpdateInfo) -> None:
+        self.statusBar().showMessage(info.message)
+        if info.available:
+            resp = QMessageBox.information(
+                self,
+                "Update available",
+                f"{info.message}\n\nOpen the releases page?",
+                QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Close,
+            )
+            if resp == QMessageBox.StandardButton.Open:
+                QDesktopServices.openUrl(QUrl(info.url))
+        else:
+            QMessageBox.information(self, "Check for updates", info.message)
+
+    def _on_update_result_startup(self, info: UpdateInfo) -> None:
+        # Non-intrusive: only surface a newer version, and only in the status bar.
+        if info.available:
+            self.statusBar().showMessage(info.message)
 
     # -- preferences and theme --------------------------------------------- #
     def _on_preferences(self) -> None:

@@ -24,6 +24,7 @@ KEY_MC_PATHS = "mc/n_paths"
 KEY_MC_STEPS = "mc/n_steps"
 KEY_MC_SEED = "mc/seed"
 KEY_LGD = "credit/lgd"
+KEY_UPDATE_CHECK = "updates/check_on_startup"
 
 DEFAULTS: dict[str, Any] = {
     KEY_THEME: "dark",
@@ -31,6 +32,7 @@ DEFAULTS: dict[str, Any] = {
     KEY_MC_STEPS: 12,
     KEY_MC_SEED: 12345,
     KEY_LGD: 0.6,
+    KEY_UPDATE_CHECK: False,
 }
 
 
@@ -66,6 +68,13 @@ class AppSettings:
     def get_str(self, key: str, default: str | None = None) -> str:
         """Return ``key`` coerced to ``str``."""
         return str(self.get(key, default))
+
+    def get_bool(self, key: str, default: bool | None = None) -> bool:
+        """Return ``key`` coerced to ``bool`` (QSettings may store as text)."""
+        value = self.get(key, default)
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in ("1", "true", "yes", "on")
 
     def set(self, key: str, value: Any) -> None:
         """Store ``value`` under ``key``."""

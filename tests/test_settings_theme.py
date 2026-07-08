@@ -6,6 +6,7 @@ from duw.config import (
     KEY_LGD,
     KEY_MC_PATHS,
     KEY_MC_SEED,
+    KEY_UPDATE_CHECK,
     AppSettings,
 )
 from duw.ui.dialogs import SettingsDialog, about_text
@@ -91,3 +92,46 @@ def test_main_window_set_theme_persists(qapp, tmp_path) -> None:
     window.settings = AppSettings(ini_path=str(tmp_path / "s.ini"))
     window._set_theme("light")
     assert window.settings.get_str("ui/theme") == "light"
+
+
+# --------------------------------------------------------------------------- #
+# Update-check preference
+# --------------------------------------------------------------------------- #
+def test_get_bool_coerces_stored_text(tmp_path) -> None:
+    settings = AppSettings(ini_path=str(tmp_path / "s.ini"))
+    assert settings.get_bool(KEY_UPDATE_CHECK) is False  # default off
+    settings.set(KEY_UPDATE_CHECK, True)
+    settings.sync()
+    reopened = AppSettings(ini_path=str(tmp_path / "s.ini"))
+    assert reopened.get_bool(KEY_UPDATE_CHECK) is True
+
+
+def test_settings_dialog_persists_update_preference(qapp, tmp_path) -> None:
+    settings = AppSettings(ini_path=str(tmp_path / "s.ini"))
+    dialog = SettingsDialog(settings)
+    assert dialog.check_on_startup.isChecked() is False
+    dialog.check_on_startup.setChecked(True)
+    dialog._on_accept()
+    assert settings.get_bool(KEY_UPDATE_CHECK) is True
+
+
+def test_settings_dialog_update_result_renders(qapp, tmp_path) -> None:
+    from duw.updates import UpdateInfo
+
+    settings = AppSettings(ini_path=str(tmp_path / "s.ini"))
+    dialog = SettingsDialog(settings)
+    # Simulate the async result arriving on the UI thread.
+    dialog._on_update_result(
+        UpdateInfo(
+            current="0.1.0",
+            latest="0.9.0",
+            url="https://example.com/r",
+            available=True,
+            error=False,
+            message="Update available: 0.9.0.",
+        )
+    )
+    assert "0.9.0" in dialog.update_status.text()
+    # isHidden() reflects the explicit flag even when the dialog isn't shown.
+    assert not dialog.open_releases_btn.isHidden()
+    assert dialog._latest_url == "https://example.com/r"
