@@ -52,9 +52,10 @@ tests and green CI (ruff + headless pytest on Python 3.11/3.12).
 - Windows `.msi` and macOS `.dmg` per [PACKAGING.md](PACKAGING.md); code signing
   and notarization remain a documented follow-up.
 
-## v3 — toward v1.0.0
+## v3 — shipped (v1.0.0)
 
-Deepening the analytics to a rounded 1.0. Each item ships with tests and green CI.
+Deepening the analytics to a rounded 1.0. All items shipped with tests and green
+CI, released as **v1.0.0**.
 
 1. **Wrong-way risk + FVA** ✅ — exposure-credit correlation tilts CVA
    (`wrong_way_adjusted_ee`), plus a funding valuation adjustment. Both set in
@@ -67,7 +68,8 @@ Deepening the analytics to a rounded 1.0. Each item ships with tests and green C
 4. **Exposure / CVA sensitivities** ✅ — DV01, CS01, and FX delta of peak PFE and
    CVA by finite difference over the market (common random numbers), in a
    dedicated tab computed off-thread.
-5. **v1.0.0 release** — cut once the above land. **(next)**
+5. **v1.0.0 release** ✅ — version 1.0.0, packaged bundle rebuilt and verified
+   (`--selftest` + GUI launch), GitHub Release cut.
 
 ## Beyond v1.0.0
 
