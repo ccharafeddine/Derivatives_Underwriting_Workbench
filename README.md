@@ -33,10 +33,10 @@ decision end to end.
 ### 1. Trade
 
 Capture a proposed trade as a term sheet: product (interest rate swap, FX
-forward, credit default swap, or European swaption), notional, tenor, direction,
-and the economic terms for each leg. The trade is added to the counterparty's
-existing netting set so exposure is measured on the net position, the way an ISDA
-master agreement actually works.
+forward, credit default swap, European swaption, or cross-currency swap),
+notional, tenor, direction, and the economic terms for each leg. The trade is
+added to the counterparty's existing netting set so exposure is measured on the
+net position, the way an ISDA master agreement actually works.
 
 ![Trade input tab](docs/images/trade.png)
 

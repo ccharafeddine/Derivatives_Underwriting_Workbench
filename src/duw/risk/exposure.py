@@ -35,7 +35,15 @@ from datetime import date
 
 import numpy as np
 
-from duw.domain.instruments import CDS, IRS, FXForward, NettingSet, Swaption, Trade
+from duw.domain.instruments import (
+    CDS,
+    IRS,
+    CrossCurrencySwap,
+    FXForward,
+    NettingSet,
+    Swaption,
+    Trade,
+)
 from duw.domain.market import CreditCurve, MarketSnapshot
 from duw.domain.results import ExposureProfile
 from duw.pricing.cds import price_cds
@@ -43,6 +51,7 @@ from duw.pricing.curves import DiscountCurve, SurvivalCurve, year_fraction
 from duw.pricing.fx_forward import forward_rate_fx, price_fx_forward
 from duw.pricing.irs import price_irs
 from duw.pricing.swaption import price_swaption
+from duw.pricing.xccy import price_cross_currency_swap
 
 
 @dataclass(frozen=True)
@@ -90,9 +99,25 @@ class ExposureEngine:
             if isinstance(trade, FXForward):
                 ccys.setdefault(trade.base_currency, None)
                 ccys.setdefault(trade.quote_currency, None)
+            elif isinstance(trade, CrossCurrencySwap):
+                ccys.setdefault(trade.currency, None)
+                ccys.setdefault(trade.foreign_currency, None)
             else:
                 ccys.setdefault(trade.currency, None)
         return tuple(sorted(ccys))
+
+    def _resolve_fx_pair(self, foreign: str, base: str) -> tuple[str, bool]:
+        """Return ``(pair, invert)`` for base-per-foreign conversion.
+
+        Picks whichever pair the snapshot carries; ``invert`` is True when the
+        snapshot stores the reverse pair, so the caller reciprocates the spot.
+        """
+        direct, inverse = foreign + base, base + foreign
+        if direct in self.snapshot.fx_spot:
+            return direct, False
+        if inverse in self.snapshot.fx_spot:
+            return inverse, True
+        raise KeyError(f"no FX pair linking {foreign} and {base} in the snapshot")
 
     def _collect_issuers(self) -> tuple[str, ...]:
         issuers: dict[str, None] = {}
@@ -106,6 +131,9 @@ class ExposureEngine:
         for trade in self.netting_set.trades:
             if isinstance(trade, FXForward):
                 pairs.setdefault(trade.base_currency + trade.quote_currency, None)
+            elif isinstance(trade, CrossCurrencySwap):
+                pair, _ = self._resolve_fx_pair(trade.foreign_currency, trade.currency)
+                pairs.setdefault(pair, None)
         return tuple(sorted(pairs))
 
     def build_time_grid(self, n_steps: int) -> tuple[float, ...]:
@@ -235,6 +263,18 @@ class ExposureEngine:
         if isinstance(trade, Swaption):
             return price_swaption(
                 trade, curves[trade.currency], self.as_of, valuation_time
+            )
+        if isinstance(trade, CrossCurrencySwap):
+            pair, invert = self._resolve_fx_pair(trade.foreign_currency, trade.currency)
+            spot = spots[pair]
+            base_per_foreign = (1.0 / spot) if invert else spot
+            return price_cross_currency_swap(
+                trade,
+                curves[trade.currency],
+                curves[trade.foreign_currency],
+                base_per_foreign,
+                self.as_of,
+                valuation_time,
             )
         if isinstance(trade, FXForward):
             pair = trade.base_currency + trade.quote_currency

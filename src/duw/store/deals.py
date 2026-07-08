@@ -25,6 +25,8 @@ from duw.domain.instruments import (
     CDS,
     IRS,
     CdsDirection,
+    CrossCurrencyDirection,
+    CrossCurrencySwap,
     Frequency,
     FxDirection,
     FXForward,
@@ -101,6 +103,10 @@ def trade_from_dict(data: dict[str, Any]) -> Trade:
         d["direction"] = SwaptionDirection(d["direction"])
         d["underlying_frequency"] = Frequency(d["underlying_frequency"])
         return Swaption(**d)
+    if product == "CrossCurrencySwap":
+        d["direction"] = CrossCurrencyDirection(d["direction"])
+        d["frequency"] = Frequency(d["frequency"])
+        return CrossCurrencySwap(**d)
     raise ValueError(f"unknown product {product!r}")
 
 

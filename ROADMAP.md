@@ -59,8 +59,9 @@ Deepening the analytics to a rounded 1.0. Each item ships with tests and green C
 1. **Wrong-way risk + FVA** ✅ — exposure-credit correlation tilts CVA
    (`wrong_way_adjusted_ee`), plus a funding valuation adjustment. Both set in
    Preferences and reported in the CVA tab and memo.
-2. **New products** — cross-currency swap and swaption (analytic pricers,
-   exposure wiring, UI).
+2. **New products** ✅ — European swaption (Black on the forward swap rate) and
+   fixed-for-fixed cross-currency swap (FX-sensitive, two-curve), each with a
+   pricer, exposure wiring, Trade-tab page, memo terms, and deal-store support.
 3. **Multi-currency collateral** — post/receive collateral in a chosen currency
    with an FX haircut.
 4. **Exposure / CVA sensitivities** — DV01, CS01, and FX delta of peak PFE and

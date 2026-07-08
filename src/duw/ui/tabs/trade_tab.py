@@ -39,6 +39,8 @@ from duw.domain.instruments import (
     CDS,
     IRS,
     CdsDirection,
+    CrossCurrencyDirection,
+    CrossCurrencySwap,
     Frequency,
     FxDirection,
     FXForward,
@@ -55,6 +57,7 @@ _PRODUCTS = (
     "FX Forward",
     "Credit Default Swap",
     "Swaption",
+    "Cross-Currency Swap",
 )
 
 
@@ -142,6 +145,7 @@ class TradeTab(QWidget):
         self.stack.addWidget(self._build_fx_page())
         self.stack.addWidget(self._build_cds_page())
         self.stack.addWidget(self._build_swaption_page())
+        self.stack.addWidget(self._build_xccy_page())
         form.addRow(self.stack)
 
         splitter.addWidget(form_panel)
@@ -327,6 +331,40 @@ class TradeTab(QWidget):
         self.swpt_bought.toggled.connect(self._refresh)
         return box
 
+    def _build_xccy_page(self) -> QWidget:
+        box = QGroupBox("Cross-currency swap terms (base leg uses Currency above)")
+        form = QFormLayout(box)
+        self.xccy_base_rate = _rate_spin(4.3, " %")
+        self.xccy_foreign_ccy = QComboBox()
+        self.xccy_foreign_ccy.addItems(_CURRENCIES)
+        self.xccy_foreign_ccy.setCurrentText("EUR")
+        self.xccy_foreign_notional = _money_spin(9_000_000.0)
+        self.xccy_foreign_rate = _rate_spin(3.3, " %")
+        self.xccy_direction = QComboBox()
+        self.xccy_direction.addItem("Receive base", CrossCurrencyDirection.RECEIVE_BASE)
+        self.xccy_direction.addItem("Pay base", CrossCurrencyDirection.PAY_BASE)
+        self.xccy_freq = _frequency_combo(Frequency.ANNUAL)
+        self.xccy_exchange = QCheckBox("Exchange notionals at maturity")
+        self.xccy_exchange.setChecked(True)
+        form.addRow("Base fixed rate", self.xccy_base_rate)
+        form.addRow("Foreign currency", self.xccy_foreign_ccy)
+        form.addRow("Foreign notional", self.xccy_foreign_notional)
+        form.addRow("Foreign fixed rate", self.xccy_foreign_rate)
+        form.addRow("Direction", self.xccy_direction)
+        form.addRow("Frequency", self.xccy_freq)
+        form.addRow("", self.xccy_exchange)
+        for w in (
+            self.xccy_base_rate,
+            self.xccy_foreign_notional,
+            self.xccy_foreign_rate,
+        ):
+            w.valueChanged.connect(self._refresh)
+        self.xccy_foreign_ccy.currentIndexChanged.connect(self._refresh)
+        self.xccy_direction.currentIndexChanged.connect(self._refresh)
+        self.xccy_freq.currentIndexChanged.connect(self._refresh)
+        self.xccy_exchange.toggled.connect(self._refresh)
+        return box
+
     # -- state ------------------------------------------------------------- #
     def _dates(self) -> tuple[date, date]:
         return self.trade_date.date().toPython(), self.maturity_date.date().toPython()
@@ -357,7 +395,12 @@ class TradeTab(QWidget):
             return self._build_fx(trade_id, notional, trade_date, maturity_date)
         if index == 2:
             return self._build_cds(trade_id, notional, trade_date, maturity_date)
-        return self._build_swaption(trade_id, notional, trade_date, maturity_date), ""
+        if index == 3:
+            return (
+                self._build_swaption(trade_id, notional, trade_date, maturity_date),
+                "",
+            )
+        return self._build_xccy(trade_id, notional, trade_date, maturity_date)
 
     def _build_irs(
         self, trade_id: str, notional: float, trade_date: date, maturity_date: date
@@ -440,6 +483,32 @@ class TradeTab(QWidget):
             bought=self.swpt_bought.isChecked(),
         )
 
+    def _build_xccy(
+        self, trade_id: str, notional: float, trade_date: date, maturity_date: date
+    ) -> tuple[CrossCurrencySwap | None, str]:
+        base = self.currency.currentText()
+        foreign = self.xccy_foreign_ccy.currentText()
+        if base == foreign:
+            return None, "Base and foreign currencies must differ."
+        return (
+            CrossCurrencySwap(
+                trade_id=trade_id,
+                counterparty_id=self._counterparty_id(),
+                notional=notional,
+                currency=base,
+                trade_date=trade_date,
+                maturity_date=maturity_date,
+                foreign_currency=foreign,
+                foreign_notional=self.xccy_foreign_notional.value(),
+                base_rate=self.xccy_base_rate.value() / 100.0,
+                foreign_rate=self.xccy_foreign_rate.value() / 100.0,
+                direction=CrossCurrencyDirection(self.xccy_direction.currentData()),
+                frequency=Frequency(self.xccy_freq.currentData()),
+                exchange_notional=self.xccy_exchange.isChecked(),
+            ),
+            "",
+        )
+
     def load_trade(self, trade: Trade) -> None:
         """Populate the form from an existing :class:`Trade` (e.g. an example)."""
         self.trade_id.setText(trade.trade_id)
@@ -485,6 +554,16 @@ class TradeTab(QWidget):
             self.swpt_vol.setValue(trade.volatility * 100.0)
             _set_combo_data(self.swpt_freq, trade.underlying_frequency)
             self.swpt_bought.setChecked(trade.bought)
+        elif isinstance(trade, CrossCurrencySwap):
+            self.product.setCurrentIndex(4)
+            self.currency.setCurrentText(trade.currency)
+            self.xccy_base_rate.setValue(trade.base_rate * 100.0)
+            self.xccy_foreign_ccy.setCurrentText(trade.foreign_currency)
+            self.xccy_foreign_notional.setValue(trade.foreign_notional)
+            self.xccy_foreign_rate.setValue(trade.foreign_rate * 100.0)
+            _set_combo_data(self.xccy_direction, trade.direction)
+            _set_combo_data(self.xccy_freq, trade.frequency)
+            self.xccy_exchange.setChecked(trade.exchange_notional)
         self._refresh()
 
     def _counterparty_id(self) -> str:
@@ -533,5 +612,11 @@ class TradeTab(QWidget):
                 f"{side} {trade.direction.value} swaption, strike "
                 f"{trade.strike:.3%}, {trade.underlying_tenor_years:.1f}y "
                 f"underlying, vol {trade.volatility:.1%}"
+            )
+        elif isinstance(trade, CrossCurrencySwap):
+            lines.append(
+                f"{trade.direction.value}: {trade.base_rate:.3%} {trade.currency} "
+                f"vs {trade.foreign_rate:.3%} {trade.foreign_currency} "
+                f"({trade.foreign_notional:,.0f} {trade.foreign_currency})"
             )
         return "<br>".join(lines)

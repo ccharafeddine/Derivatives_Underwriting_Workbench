@@ -55,6 +55,13 @@ class SwaptionDirection(StrEnum):
     RECEIVER = "receiver"  # right to receive fixed (a put on the swap rate)
 
 
+class CrossCurrencyDirection(StrEnum):
+    """Our side of a cross-currency swap, relative to the base-currency leg."""
+
+    RECEIVE_BASE = "receive_base"  # receive base-ccy leg, pay foreign-ccy leg
+    PAY_BASE = "pay_base"  # pay base-ccy leg, receive foreign-ccy leg
+
+
 class DayCount(StrEnum):
     """Day-count conventions used by leg accruals."""
 
@@ -177,6 +184,28 @@ class Swaption(Trade):
     volatility: float = 0.20
     underlying_frequency: Frequency = Frequency.ANNUAL
     bought: bool = True
+
+
+@dataclass(frozen=True, kw_only=True)
+class CrossCurrencySwap(Trade):
+    """Fixed-for-fixed cross-currency swap with notional exchange at maturity.
+
+    ``currency`` / ``notional`` (from :class:`Trade`) are the **base** leg;
+    ``foreign_currency`` / ``foreign_notional`` are the other leg. Both legs pay a
+    fixed coupon and, if ``exchange_notional``, exchange principal at maturity.
+    MtM is reported in the base currency, converting the foreign leg at the
+    prevailing FX spot — so the trade is genuinely FX-sensitive. The market
+    snapshot must carry an FX pair linking the two currencies (either direction).
+    ``base_rate`` and ``foreign_rate`` are decimals.
+    """
+
+    foreign_currency: str
+    foreign_notional: float
+    base_rate: float
+    foreign_rate: float
+    direction: CrossCurrencyDirection
+    frequency: Frequency = Frequency.ANNUAL
+    exchange_notional: bool = True
 
 
 @dataclass(frozen=True)

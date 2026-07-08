@@ -17,7 +17,14 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 
-from duw.domain.instruments import CDS, IRS, FXForward, Swaption, Trade
+from duw.domain.instruments import (
+    CDS,
+    IRS,
+    CrossCurrencySwap,
+    FXForward,
+    Swaption,
+    Trade,
+)
 from duw.domain.results import AnalysisResults, MemoResult
 from duw.reports.interpreter import (
     DISCLAIMER,
@@ -96,6 +103,14 @@ def _trade_rows(results: AnalysisResults) -> list[tuple[str, str]]:
                 "Terms",
                 f"{side} {trade.direction.value} swaption, strike "
                 f"{trade.strike:.3%}, {trade.underlying_tenor_years:.1f}y underlying",
+            )
+        )
+    elif isinstance(trade, CrossCurrencySwap):
+        rows.append(
+            (
+                "Terms",
+                f"{trade.direction.value}: {trade.base_rate:.3%} {trade.currency} "
+                f"vs {trade.foreign_rate:.3%} {trade.foreign_currency}",
             )
         )
     return rows
