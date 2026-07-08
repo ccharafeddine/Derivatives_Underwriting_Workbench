@@ -1,5 +1,11 @@
 # Derivatives Underwriting Workbench
 
+[![CI](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Qt](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41cd52.svg)](https://doc.qt.io/qtforpython/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A desktop application that reconstructs the counterparty-credit underwriting
 workflow for OTC derivatives. Give it a proposed interest rate, FX, or credit
 derivative trade and it quantifies the counterparty exposure the trade creates,
