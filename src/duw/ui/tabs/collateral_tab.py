@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -56,6 +57,16 @@ class CollateralTab(QWidget):
         self.mpor_days = QSpinBox()
         self.mpor_days.setRange(1, 60)
         self.mpor_days.setValue(10)
+        self.collateral_currency = QComboBox()
+        self.collateral_currency.addItems(("USD", "EUR"))
+        self.fx_haircut = QDoubleSpinBox()
+        self.fx_haircut.setRange(0.0, 30.0)
+        self.fx_haircut.setDecimals(1)
+        self.fx_haircut.setSuffix(" %")
+        self.fx_haircut.setToolTip(
+            "Haircut on collateral posted in a different currency "
+            "(0 = same-currency collateral)."
+        )
         self.apply_button = QPushButton("Apply CSA")
         self.apply_button.clicked.connect(self._recompute)
         self.apply_button.setEnabled(False)
@@ -66,6 +77,8 @@ class CollateralTab(QWidget):
         form.addRow("MTA", self.mta)
         form.addRow("Initial margin", self.initial_margin)
         form.addRow("MPoR (days)", self.mpor_days)
+        form.addRow("Collateral currency", self.collateral_currency)
+        form.addRow("FX haircut", self.fx_haircut)
         form.addRow(self.apply_button)
 
         self.view = PlotlyView()
@@ -92,6 +105,8 @@ class CollateralTab(QWidget):
             mta=self.mta.value(),
             initial_margin=self.initial_margin.value(),
             mpor_days=self.mpor_days.value(),
+            collateral_currency=self.collateral_currency.currentText(),
+            fx_haircut=self.fx_haircut.value() / 100.0,
         )
 
     def set_results(self, results: AnalysisResults) -> None:
@@ -126,17 +141,23 @@ class CollateralTab(QWidget):
                 collateral.peak_pfe_collateralized
                 / collateral.peak_pfe_uncollateralized
             )
-        self.table.set_metrics(
-            [
+        rows = [
+            (
+                "Peak PFE uncollateralized",
+                _money(collateral.peak_pfe_uncollateralized),
+            ),
+            ("Peak PFE collateralized", _money(collateral.peak_pfe_collateralized)),
+            (
+                "PFE reduction",
+                "—" if math.isnan(reduction) else f"{reduction:.0%}",
+            ),
+            ("MPoR (days)", str(collateral.mpor_days)),
+        ]
+        if collateral.fx_haircut:
+            rows.append(
                 (
-                    "Peak PFE uncollateralized",
-                    _money(collateral.peak_pfe_uncollateralized),
-                ),
-                ("Peak PFE collateralized", _money(collateral.peak_pfe_collateralized)),
-                (
-                    "PFE reduction",
-                    "—" if math.isnan(reduction) else f"{reduction:.0%}",
-                ),
-                ("MPoR (days)", str(collateral.mpor_days)),
-            ]
-        )
+                    f"FX haircut ({collateral.collateral_currency})",
+                    f"{collateral.fx_haircut:.0%}",
+                )
+            )
+        self.table.set_metrics(rows)

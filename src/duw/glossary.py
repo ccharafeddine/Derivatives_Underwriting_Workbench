@@ -89,6 +89,11 @@ GLOSSARY: dict[str, str] = {
         "Margin Period of Risk: the gap (e.g. 10 business days) over which "
         "collateral cannot be re-called, during which exposure can still build."
     ),
+    "FX haircut": (
+        "A discount applied to collateral posted in a different currency than the "
+        "exposure, buffering the FX move over the margin period of risk. A higher "
+        "haircut means the collateral mitigates less."
+    ),
 }
 
 

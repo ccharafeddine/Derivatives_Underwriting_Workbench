@@ -23,8 +23,13 @@ Model (path-wise, per node ``(path, t)``):
 The one-MPoR lag (``delta = mpor_days / 252``) is what leaves residual gap risk:
 collateral reflects the exposure as of ``t - delta``, so a move over the MPoR is
 uncollateralized. With no CSA (very large threshold, zero IM) the collateralized
-exposure recovers the uncollateralized profile. Single-currency collateral only;
-multi-currency haircuts are a deliberate v1 omission.
+exposure recovers the uncollateralized profile.
+
+**Multi-currency collateral:** when collateral is posted in a currency other than
+the netting-set currency, its value drifts with FX over the MPoR. This is modelled
+with a supervisory-style ``fx_haircut`` applied to the posted collateral value
+(variation and initial margin), so posting in a different currency mitigates less
+than same-currency collateral. A ``0`` haircut recovers single-currency behavior.
 
 Pure numerics; no Qt.
 """
@@ -43,12 +48,19 @@ BUSINESS_DAYS_PER_YEAR = 252.0
 
 @dataclass(frozen=True)
 class CSA:
-    """Credit Support Annex parameters (amounts in the netting-set currency)."""
+    """Credit Support Annex parameters (amounts in the netting-set currency).
+
+    ``collateral_currency`` is informational; ``fx_haircut`` (a decimal, e.g.
+    ``0.08``) discounts posted collateral value when it is in a different currency
+    than the exposure. ``0`` is same-currency collateral.
+    """
 
     threshold: float = 0.0
     mta: float = 0.0
     initial_margin: float = 0.0
     mpor_days: int = 10
+    collateral_currency: str = ""
+    fx_haircut: float = 0.0
 
 
 def _lagged_values(
@@ -82,7 +94,9 @@ def apply_csa(cube: np.ndarray, time_grid: tuple[float, ...], csa: CSA) -> np.nd
     variation_margin = np.maximum(lagged - csa.threshold, 0.0)
     # Minimum transfer amount: no collateral moves below the MTA.
     variation_margin = np.where(variation_margin >= csa.mta, variation_margin, 0.0)
-    return np.maximum(exposure - variation_margin - csa.initial_margin, 0.0)
+    # FX haircut discounts the value of collateral posted in another currency.
+    effective = (1.0 - csa.fx_haircut) * (variation_margin + csa.initial_margin)
+    return np.maximum(exposure - effective, 0.0)
 
 
 def _peak_pfe(exposure: np.ndarray, quantile: float = 95.0) -> float:
@@ -101,6 +115,8 @@ def compute_collateral(
         mta=csa.mta,
         initial_margin=csa.initial_margin,
         mpor_days=csa.mpor_days,
+        collateral_currency=csa.collateral_currency,
+        fx_haircut=csa.fx_haircut,
         time_grid=tuple(float(t) for t in time_grid),
         ee_uncollateralized=tuple(uncollat.mean(axis=0)),
         ee_collateralized=tuple(collat.mean(axis=0)),

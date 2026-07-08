@@ -59,6 +59,8 @@ class CollateralResult:
     mta: float = nan
     initial_margin: float = nan
     mpor_days: int = 0
+    collateral_currency: str = ""
+    fx_haircut: float = 0.0
     time_grid: tuple[float, ...] = field(default_factory=tuple)
     ee_uncollateralized: tuple[float, ...] = field(default_factory=tuple)
     ee_collateralized: tuple[float, ...] = field(default_factory=tuple)

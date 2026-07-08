@@ -227,3 +227,18 @@ def test_collateral_result_echoes_csa_parameters() -> None:
     assert result.initial_margin == 100_000.0
     assert result.mpor_days == 10
     assert len(result.ee_collateralized) == len(grid)
+
+
+def test_fx_haircut_reduces_collateral_mitigation() -> None:
+    cube, grid = _exposure_cube()
+    same_ccy = compute_collateral(cube, grid, CSA(threshold=100_000.0, fx_haircut=0.0))
+    cross_ccy = compute_collateral(
+        cube,
+        grid,
+        CSA(threshold=100_000.0, fx_haircut=0.15, collateral_currency="EUR"),
+    )
+    # A haircut discounts collateral value, so residual exposure is higher.
+    assert cross_ccy.peak_pfe_collateralized >= same_ccy.peak_pfe_collateralized
+    assert sum(cross_ccy.ee_collateralized) > sum(same_ccy.ee_collateralized)
+    assert cross_ccy.fx_haircut == 0.15
+    assert cross_ccy.collateral_currency == "EUR"

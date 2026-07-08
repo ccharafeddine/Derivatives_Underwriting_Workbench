@@ -62,8 +62,8 @@ Deepening the analytics to a rounded 1.0. Each item ships with tests and green C
 2. **New products** ✅ — European swaption (Black on the forward swap rate) and
    fixed-for-fixed cross-currency swap (FX-sensitive, two-curve), each with a
    pricer, exposure wiring, Trade-tab page, memo terms, and deal-store support.
-3. **Multi-currency collateral** — post/receive collateral in a chosen currency
-   with an FX haircut.
+3. **Multi-currency collateral** ✅ — collateral posted in a chosen currency with
+   an FX haircut that discounts its value; set in the Collateral tab.
 4. **Exposure / CVA sensitivities** — DV01, CS01, and FX delta of peak PFE and
    CVA by finite difference over the market (common random numbers).
 5. **v1.0.0 release** — cut once the above land.
