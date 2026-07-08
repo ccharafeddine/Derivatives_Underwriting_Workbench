@@ -48,6 +48,13 @@ class CdsDirection(StrEnum):
     SELL_PROTECTION = "sell_protection"  # we receive premium, pay on default
 
 
+class SwaptionDirection(StrEnum):
+    """Our optionality on the underlying swap."""
+
+    PAYER = "payer"  # right to pay fixed (a call on the swap rate)
+    RECEIVER = "receiver"  # right to receive fixed (a put on the swap rate)
+
+
 class DayCount(StrEnum):
     """Day-count conventions used by leg accruals."""
 
@@ -149,6 +156,27 @@ class CDS(Trade):
     premium_frequency: Frequency = Frequency.QUARTERLY
     day_count: DayCount = DayCount.ACT_360
     recovery_rate: float = 0.4
+
+
+@dataclass(frozen=True, kw_only=True)
+class Swaption(Trade):
+    """European cash-settled swaption.
+
+    ``maturity_date`` is the option **expiry**; the underlying swap starts at
+    expiry and runs ``underlying_tenor_years``. ``strike`` and ``volatility`` are
+    decimals (``volatility`` is a lognormal Black vol of the swap rate). Priced
+    with Black on the forward swap rate. Cash-settled at expiry: the MtM is the
+    option value up to expiry and 0 afterward — physical settlement into the
+    underlying swap is a deliberate simplification and is not modelled.
+    ``bought`` is True when we hold the option (a positive-MtM asset to us).
+    """
+
+    strike: float
+    direction: SwaptionDirection
+    underlying_tenor_years: float
+    volatility: float = 0.20
+    underlying_frequency: Frequency = Frequency.ANNUAL
+    bought: bool = True
 
 
 @dataclass(frozen=True)

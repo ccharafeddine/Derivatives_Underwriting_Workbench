@@ -35,13 +35,14 @@ from datetime import date
 
 import numpy as np
 
-from duw.domain.instruments import CDS, IRS, FXForward, NettingSet, Trade
+from duw.domain.instruments import CDS, IRS, FXForward, NettingSet, Swaption, Trade
 from duw.domain.market import CreditCurve, MarketSnapshot
 from duw.domain.results import ExposureProfile
 from duw.pricing.cds import price_cds
 from duw.pricing.curves import DiscountCurve, SurvivalCurve, year_fraction
 from duw.pricing.fx_forward import forward_rate_fx, price_fx_forward
 from duw.pricing.irs import price_irs
+from duw.pricing.swaption import price_swaption
 
 
 @dataclass(frozen=True)
@@ -231,6 +232,10 @@ class ExposureEngine:
     ) -> float:
         if isinstance(trade, IRS):
             return price_irs(trade, curves[trade.currency], self.as_of, valuation_time)
+        if isinstance(trade, Swaption):
+            return price_swaption(
+                trade, curves[trade.currency], self.as_of, valuation_time
+            )
         if isinstance(trade, FXForward):
             pair = trade.base_currency + trade.quote_currency
             return price_fx_forward(

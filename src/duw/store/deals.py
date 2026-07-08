@@ -30,6 +30,8 @@ from duw.domain.instruments import (
     FXForward,
     NettingSet,
     SwapDirection,
+    Swaption,
+    SwaptionDirection,
     Trade,
 )
 from duw.domain.results import AnalysisResults
@@ -95,6 +97,10 @@ def trade_from_dict(data: dict[str, Any]) -> Trade:
         d["direction"] = CdsDirection(d["direction"])
         d["premium_frequency"] = Frequency(d["premium_frequency"])
         return CDS(**d)
+    if product == "Swaption":
+        d["direction"] = SwaptionDirection(d["direction"])
+        d["underlying_frequency"] = Frequency(d["underlying_frequency"])
+        return Swaption(**d)
     raise ValueError(f"unknown product {product!r}")
 
 

@@ -18,6 +18,7 @@ from datetime import date
 
 from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDateEdit,
     QDoubleSpinBox,
@@ -42,12 +43,19 @@ from duw.domain.instruments import (
     FxDirection,
     FXForward,
     SwapDirection,
+    Swaption,
+    SwaptionDirection,
     Trade,
 )
 from duw.ui.app_state import AppState
 
 _CURRENCIES = ("USD", "EUR")
-_PRODUCTS = ("Interest Rate Swap", "FX Forward", "Credit Default Swap")
+_PRODUCTS = (
+    "Interest Rate Swap",
+    "FX Forward",
+    "Credit Default Swap",
+    "Swaption",
+)
 
 
 def _money_spin(default: float) -> QDoubleSpinBox:
@@ -133,6 +141,7 @@ class TradeTab(QWidget):
         self.stack.addWidget(self._build_irs_page())
         self.stack.addWidget(self._build_fx_page())
         self.stack.addWidget(self._build_cds_page())
+        self.stack.addWidget(self._build_swaption_page())
         form.addRow(self.stack)
 
         splitter.addWidget(form_panel)
@@ -288,6 +297,36 @@ class TradeTab(QWidget):
         self.cds_recovery.valueChanged.connect(self._refresh)
         return box
 
+    def _build_swaption_page(self) -> QWidget:
+        box = QGroupBox("Swaption terms (maturity date = option expiry)")
+        form = QFormLayout(box)
+        self.swpt_strike = _rate_spin(4.3, " %")
+        self.swpt_direction = QComboBox()
+        self.swpt_direction.addItem("Payer", SwaptionDirection.PAYER)
+        self.swpt_direction.addItem("Receiver", SwaptionDirection.RECEIVER)
+        self.swpt_tenor = QDoubleSpinBox()
+        self.swpt_tenor.setRange(0.25, 50.0)
+        self.swpt_tenor.setDecimals(2)
+        self.swpt_tenor.setSuffix(" y")
+        self.swpt_tenor.setValue(5.0)
+        self.swpt_vol = _rate_spin(20.0, " %", decimals=1)
+        self.swpt_vol.setRange(0.1, 200.0)
+        self.swpt_freq = _frequency_combo(Frequency.ANNUAL)
+        self.swpt_bought = QCheckBox("We hold the option (bought)")
+        self.swpt_bought.setChecked(True)
+        form.addRow("Strike rate", self.swpt_strike)
+        form.addRow("Direction", self.swpt_direction)
+        form.addRow("Underlying tenor", self.swpt_tenor)
+        form.addRow("Swap-rate vol", self.swpt_vol)
+        form.addRow("Underlying frequency", self.swpt_freq)
+        form.addRow("", self.swpt_bought)
+        for w in (self.swpt_strike, self.swpt_tenor, self.swpt_vol):
+            w.valueChanged.connect(self._refresh)
+        self.swpt_direction.currentIndexChanged.connect(self._refresh)
+        self.swpt_freq.currentIndexChanged.connect(self._refresh)
+        self.swpt_bought.toggled.connect(self._refresh)
+        return box
+
     # -- state ------------------------------------------------------------- #
     def _dates(self) -> tuple[date, date]:
         return self.trade_date.date().toPython(), self.maturity_date.date().toPython()
@@ -316,7 +355,9 @@ class TradeTab(QWidget):
             return self._build_irs(trade_id, notional, trade_date, maturity_date), ""
         if index == 1:
             return self._build_fx(trade_id, notional, trade_date, maturity_date)
-        return self._build_cds(trade_id, notional, trade_date, maturity_date)
+        if index == 2:
+            return self._build_cds(trade_id, notional, trade_date, maturity_date)
+        return self._build_swaption(trade_id, notional, trade_date, maturity_date), ""
 
     def _build_irs(
         self, trade_id: str, notional: float, trade_date: date, maturity_date: date
@@ -381,6 +422,24 @@ class TradeTab(QWidget):
             "",
         )
 
+    def _build_swaption(
+        self, trade_id: str, notional: float, trade_date: date, maturity_date: date
+    ) -> Swaption:
+        return Swaption(
+            trade_id=trade_id,
+            counterparty_id=self._counterparty_id(),
+            notional=notional,
+            currency=self.currency.currentText(),
+            trade_date=trade_date,
+            maturity_date=maturity_date,
+            strike=self.swpt_strike.value() / 100.0,
+            direction=SwaptionDirection(self.swpt_direction.currentData()),
+            underlying_tenor_years=self.swpt_tenor.value(),
+            volatility=self.swpt_vol.value() / 100.0,
+            underlying_frequency=Frequency(self.swpt_freq.currentData()),
+            bought=self.swpt_bought.isChecked(),
+        )
+
     def load_trade(self, trade: Trade) -> None:
         """Populate the form from an existing :class:`Trade` (e.g. an example)."""
         self.trade_id.setText(trade.trade_id)
@@ -417,6 +476,15 @@ class TradeTab(QWidget):
             self.cds_spread.setValue(trade.spread * 1e4)
             _set_combo_data(self.cds_premium_freq, trade.premium_frequency)
             self.cds_recovery.setValue(trade.recovery_rate * 100.0)
+        elif isinstance(trade, Swaption):
+            self.product.setCurrentIndex(3)
+            self.currency.setCurrentText(trade.currency)
+            self.swpt_strike.setValue(trade.strike * 100.0)
+            _set_combo_data(self.swpt_direction, trade.direction)
+            self.swpt_tenor.setValue(trade.underlying_tenor_years)
+            self.swpt_vol.setValue(trade.volatility * 100.0)
+            _set_combo_data(self.swpt_freq, trade.underlying_frequency)
+            self.swpt_bought.setChecked(trade.bought)
         self._refresh()
 
     def _counterparty_id(self) -> str:
@@ -458,5 +526,12 @@ class TradeTab(QWidget):
             lines.append(
                 f"{trade.direction.value} on {trade.reference_entity}, "
                 f"{trade.spread * 1e4:.0f} bps, R={trade.recovery_rate:.0%}"
+            )
+        elif isinstance(trade, Swaption):
+            side = "bought" if trade.bought else "sold"
+            lines.append(
+                f"{side} {trade.direction.value} swaption, strike "
+                f"{trade.strike:.3%}, {trade.underlying_tenor_years:.1f}y "
+                f"underlying, vol {trade.volatility:.1%}"
             )
         return "<br>".join(lines)
