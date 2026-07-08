@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from duw.domain.counterparty import Counterparty, Financials
 from duw.ui.app_state import AppState
+from duw.ui.financials_fetch import fetch_async
 
 _CUSTOM = "Custom…"
 _CURRENCIES = ("USD", "EUR")
@@ -62,6 +64,7 @@ class CounterpartyTab(QWidget):
         self._app_state = app_state
         self._seeds = list(app_state.counterparties) if app_state else []
         self._fin_spins: dict[str, QDoubleSpinBox] = {}
+        self._fetch_signals = None
         self._build_ui()
         self._populate_from_selection()
         self._refresh()
@@ -85,7 +88,22 @@ class CounterpartyTab(QWidget):
         form.addRow("Sector", self.sector)
         self.ticker = QLineEdit()
         self.ticker.setPlaceholderText("optional public ticker")
-        form.addRow("Ticker", self.ticker)
+        self.fetch_btn = QPushButton("Fetch")
+        self.fetch_btn.setToolTip(
+            "Pull financials for this ticker via yfinance (offline-safe; "
+            "keeps current values on failure)."
+        )
+        self.fetch_btn.clicked.connect(self._on_fetch)
+        ticker_row = QHBoxLayout()
+        ticker_row.addWidget(self.ticker)
+        ticker_row.addWidget(self.fetch_btn)
+        ticker_widget = QWidget()
+        ticker_widget.setLayout(ticker_row)
+        form.addRow("Ticker", ticker_widget)
+        self.fetch_status = QLabel("")
+        self.fetch_status.setObjectName("fetch_status")
+        self.fetch_status.setWordWrap(True)
+        form.addRow("", self.fetch_status)
         self.cds_issuer = QLineEdit()
         self.cds_issuer.setPlaceholderText("optional CDS issuer key")
         form.addRow("CDS issuer", self.cds_issuer)
@@ -167,12 +185,44 @@ class CounterpartyTab(QWidget):
         self.ticker.setText(cp.ticker or "")
         self.cds_issuer.setText(cp.cds_issuer or "")
         self.rating.setText(cp.internal_rating or "")
-        fin = cp.financials
+        if cp.financials is not None:
+            self._set_financials(cp.financials)
+
+    def _set_financials(self, fin: Financials) -> None:
+        for attr, spin in self._fin_spins.items():
+            spin.setValue(getattr(fin, attr))
+        self.equity_vol.setValue(fin.equity_volatility * 100.0)
+        self.fin_currency.setCurrentText(fin.currency)
+
+    # -- live financials fetch --------------------------------------------- #
+    def _on_fetch(self) -> None:
+        ticker = self.ticker.text().strip()
+        if not ticker:
+            self.fetch_status.setText("Enter a ticker to fetch.")
+            return
+        self.fetch_btn.setEnabled(False)
+        self.fetch_status.setText(f"Fetching {ticker}…")
+        self._fetch_signals = fetch_async(
+            ticker,
+            self.equity_vol.value() / 100.0,
+            self.fin_currency.currentText(),
+            self._on_fetched,
+        )
+
+    def _on_fetched(self, fin: Financials | None) -> None:
+        self.fetch_btn.setEnabled(True)
+        ticker = self.ticker.text().strip()
         if fin is not None:
-            for attr, spin in self._fin_spins.items():
-                spin.setValue(getattr(fin, attr))
-            self.equity_vol.setValue(fin.equity_volatility * 100.0)
-            self.fin_currency.setCurrentText(fin.currency)
+            self._set_financials(fin)
+            self.fetch_status.setText(
+                f"<span style='color:#2e7d32'>Loaded financials for {ticker}.</span>"
+            )
+        else:
+            self.fetch_status.setText(
+                "<span style='color:#c62828'>Could not fetch — kept current "
+                "values (offline or unknown ticker).</span>"
+            )
+        self._refresh()
 
     # -- state ------------------------------------------------------------- #
     def build_counterparty(self) -> Counterparty | None:

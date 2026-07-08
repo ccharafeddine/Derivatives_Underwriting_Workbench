@@ -45,13 +45,22 @@ agreement actually works.
 Assess the counterparty's creditworthiness. A KMV-style Merton model derives a
 distance-to-default and default probability from equity value and volatility; an
 Altman Z-score summarizes balance-sheet health; the two are mapped to an
-internal rating grade and a probability-of-default term structure. Public
-counterparties can be populated from market data; private ones from the bundled
-synthetic set.
+internal rating grade and a probability-of-default term structure. Enter a public
+ticker and **Fetch** pulls the company's financials via yfinance (offline-safe,
+degrading to synthetic data); private names come from the bundled synthetic set.
 
 ![Counterparty tab](docs/images/counterparty.png)
 
-### 3. Exposure
+### 3. Market
+
+Inspect and edit the market the trade is priced against: zero curves by currency,
+FX spots, and CDS spread curves by issuer. Change a rate, spot, or spread and
+Apply, and the next analysis prices against your values — a quick way to test how
+the drivers move exposure and CVA (or reset to the bundled snapshot).
+
+![Market tab](docs/images/market.png)
+
+### 4. Exposure
 
 The core engine. Monte Carlo simulation evolves the trade's risk factors
 (interest rates, FX, credit spreads) forward over the trade's life, reprices the
@@ -63,7 +72,7 @@ netting set on every path at every date, and reads off the exposure profile:
 
 ![Exposure tab](docs/images/exposure.png)
 
-### 4. Limits
+### 5. Limits
 
 Check the trade against a per-counterparty credit limit. The netting set is
 aggregated across existing and proposed trades to show current utilization,
@@ -72,7 +81,7 @@ flag when it would breach the limit.
 
 ![Limits tab](docs/images/limits.png)
 
-### 5. Collateral
+### 6. Collateral
 
 Model a Credit Support Annex — threshold, minimum transfer amount, initial
 margin, and margin period of risk — and see how much it reduces exposure.
@@ -81,7 +90,7 @@ mitigation is explicit.
 
 ![Collateral tab](docs/images/collateral.png)
 
-### 6. CVA
+### 7. CVA
 
 Compute the Credit Valuation Adjustment: the market value of the counterparty's
 default risk, built from the expected-exposure profile, the counterparty's
@@ -90,7 +99,7 @@ the bilateral net (BCVA) are reported alongside.
 
 ![CVA tab](docs/images/cva.png)
 
-### 7. Scenario
+### 8. Scenario
 
 Stress test the proposed trade. Apply market shocks — a parallel rate shift, a
 curve steepener/flattener, an FX move, and credit-spread widening (with named
@@ -100,7 +109,7 @@ exposure profiles overlaid.
 
 ![Scenario tab](docs/images/scenario.png)
 
-### 8. Memo
+### 9. Memo
 
 Generate a one-page underwriting memo: trade summary, counterparty snapshot,
 exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
@@ -109,7 +118,7 @@ engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
 ![Memo tab](docs/images/memo.png)
 
-### 9. Pipeline
+### 10. Pipeline
 
 Track multiple transactions through their approval stages — Requested → Under
 review → Credit approved → Documented → Executed — since underwriting means

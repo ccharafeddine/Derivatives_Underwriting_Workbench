@@ -49,6 +49,7 @@ from duw.ui.tabs.counterparty_tab import CounterpartyTab
 from duw.ui.tabs.cva_tab import CvaTab
 from duw.ui.tabs.exposure_tab import ExposureTab
 from duw.ui.tabs.limits_tab import LimitsTab
+from duw.ui.tabs.market_tab import MarketTab
 from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.scenario_tab import ScenarioTab
@@ -61,6 +62,7 @@ from duw.updates import UpdateInfo
 TAB_NAMES: tuple[str, ...] = (
     "Trade",
     "Counterparty",
+    "Market",
     "Exposure",
     "Limits",
     "Collateral",
@@ -92,6 +94,7 @@ class MainWindow(QMainWindow):
 
         self.trade_tab = TradeTab(self.app_state)
         self.counterparty_tab = CounterpartyTab(self.app_state)
+        self.market_tab = MarketTab(self.app_state)
         self.exposure_tab = ExposureTab()
         self.limits_tab = LimitsTab()
         self.collateral_tab = CollateralTab()
@@ -120,6 +123,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.addTab(self.trade_tab, "Trade")
         self.tabs.addTab(self.counterparty_tab, "Counterparty")
+        self.tabs.addTab(self.market_tab, "Market")
         self.tabs.addTab(self.exposure_tab, "Exposure")
         self.tabs.addTab(self.limits_tab, "Limits")
         self.tabs.addTab(self.collateral_tab, "Collateral")
@@ -216,7 +220,13 @@ class MainWindow(QMainWindow):
         if not self.app_state.is_ready() or self._thread is not None:
             return
         counterparty, existing_set, trade = self.app_state.run_inputs()
-        self._start_run(counterparty, existing_set, trade, self._run_config())
+        self._start_run(
+            counterparty,
+            existing_set,
+            trade,
+            self._run_config(),
+            snapshot=self.app_state.snapshot,
+        )
 
     def _run_config(self) -> RunConfig:
         """Build a RunConfig from the persisted settings."""
@@ -233,7 +243,13 @@ class MainWindow(QMainWindow):
             return
         counterparty, existing_set, trade, config = deal.to_run_inputs()
         self.statusBar().showMessage(f"Reopening deal: {deal.name}…")
-        self._start_run(counterparty, existing_set, trade, config)
+        self._start_run(
+            counterparty,
+            existing_set,
+            trade,
+            config,
+            snapshot=self.app_state.snapshot,
+        )
 
     def _on_stressed_run(self, spec: ScenarioSpec) -> None:
         """Re-run the last base inputs against a shocked snapshot."""

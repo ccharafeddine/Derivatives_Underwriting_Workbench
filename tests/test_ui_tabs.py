@@ -153,6 +153,7 @@ def test_main_window_builds_all_tabs(qapp) -> None:
     assert labels == [
         "Trade",
         "Counterparty",
+        "Market",
         "Exposure",
         "Limits",
         "Collateral",

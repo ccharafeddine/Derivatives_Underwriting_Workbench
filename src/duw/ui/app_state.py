@@ -26,6 +26,7 @@ class AppState(QObject):
     tradeChanged = Signal(object)  # Trade | None
     counterpartyChanged = Signal(object)  # Counterparty | None
     bookChanged = Signal()
+    snapshotChanged = Signal()
 
     def __init__(self, snapshot: MarketSnapshot | None = None) -> None:
         super().__init__()
@@ -73,6 +74,16 @@ class AppState(QObject):
         if self.book:
             self.book.clear()
             self.bookChanged.emit()
+
+    # -- market snapshot (editable working copy) --------------------------- #
+    def set_snapshot(self, snapshot: MarketSnapshot) -> None:
+        """Replace the working market snapshot and notify listeners."""
+        self.snapshot = snapshot
+        self.snapshotChanged.emit()
+
+    def reset_snapshot(self) -> None:
+        """Reload the bundled market snapshot, discarding any edits."""
+        self.set_snapshot(load_market_snapshot())
 
     # -- run readiness ----------------------------------------------------- #
     def is_ready(self) -> bool:
