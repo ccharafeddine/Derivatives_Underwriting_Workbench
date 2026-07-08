@@ -20,7 +20,9 @@ dist/
 wheels/
 sdist/
 *.manifest
+# PyInstaller generates *.spec, but duw.spec is our checked-in build recipe.
 *.spec
+!duw.spec
 
 # Installer logs
 pip-log.txt

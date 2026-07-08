@@ -10,4 +10,4 @@ This is a portfolio / educational project. It runs on synthetic and public data
 only, executes no trades, and is not affiliated with any financial institution.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
