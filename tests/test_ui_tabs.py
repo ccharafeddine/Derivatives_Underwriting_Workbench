@@ -176,3 +176,63 @@ def test_run_action_enables_only_when_ready(qapp) -> None:
     state.set_trade(None)
     window._update_run_enabled()
     assert not window.run_action.isEnabled()
+
+
+# --------------------------------------------------------------------------- #
+# Existing-trades book
+# --------------------------------------------------------------------------- #
+def _sample_trade(trade_id: str = "BK1") -> IRS:
+    from datetime import date
+
+    return IRS(
+        trade_id=trade_id,
+        counterparty_id="CP001",
+        notional=5_000_000.0,
+        currency="USD",
+        trade_date=date(2025, 6, 30),
+        maturity_date=date(2030, 6, 30),
+        fixed_rate=0.04,
+        direction=SwapDirection.PAY_FIXED,
+    )
+
+
+def test_app_state_book_builds_existing_set(qapp) -> None:
+    state = AppState()
+    state.set_counterparty(state.counterparties[0])
+    assert len(state.existing_set.trades) == 0
+    trade = _sample_trade()
+    state.add_to_book(trade)
+    assert state.book == [trade]
+    # The existing netting set reflects the book and the selected counterparty.
+    assert state.existing_set.trades == (trade,)
+    assert state.existing_set.counterparty_id == state.counterparty.counterparty_id
+    state.remove_from_book(0)
+    assert state.existing_set.trades == ()
+    state.add_to_book(trade)
+    state.clear_book()
+    assert state.existing_set.trades == ()
+
+
+def test_trade_tab_add_and_remove_from_book(qapp) -> None:
+    state = AppState()
+    tab = TradeTab(state)
+    tab.notional.setValue(7_000_000.0)  # a valid trade
+    assert tab.add_book_btn.isEnabled()
+    tab._on_add_to_book()
+    assert len(state.book) == 1
+    assert tab.book_list.count() == 1  # list reflects the book via bookChanged
+    tab.book_list.setCurrentRow(0)
+    tab._on_remove_from_book()
+    assert len(state.book) == 0
+    assert tab.book_list.count() == 0
+
+
+def test_run_inputs_include_the_book(qapp) -> None:
+    state = AppState()
+    state.set_counterparty(state.counterparties[0])
+    state.set_trade(_sample_trade("PROPOSED"))
+    state.add_to_book(_sample_trade("EXISTING1"))
+    state.add_to_book(_sample_trade("EXISTING2"))
+    counterparty, existing_set, proposed = state.run_inputs()
+    assert proposed.trade_id == "PROPOSED"
+    assert [t.trade_id for t in existing_set.trades] == ["EXISTING1", "EXISTING2"]

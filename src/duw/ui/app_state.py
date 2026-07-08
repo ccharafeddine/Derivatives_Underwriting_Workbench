@@ -3,8 +3,8 @@
 A small :class:`QObject` that the input tabs read from and write to, so the
 main window can react to changes (e.g. enabling the Run action) without the tabs
 knowing about each other. Holds the loaded market snapshot and seed
-counterparties (offline), the currently selected counterparty and proposed
-trade, and the counterparty's existing netting set.
+counterparties (offline), the currently selected counterparty, the proposed
+trade, and the **book** of existing trades that the proposed trade nets against.
 
 Qt lives here (this is the ``ui`` package). No analytics: this module only
 carries state and emits change signals.
@@ -20,19 +20,12 @@ from duw.domain.instruments import NettingSet, Trade
 from duw.domain.market import MarketSnapshot
 
 
-def _empty_netting_set(counterparty_id: str = "") -> NettingSet:
-    return NettingSet(
-        netting_set_id=f"NS-{counterparty_id}" if counterparty_id else "NS",
-        counterparty_id=counterparty_id,
-        trades=(),
-    )
-
-
 class AppState(QObject):
     """Holds the current underwriting inputs and notifies on change."""
 
     tradeChanged = Signal(object)  # Trade | None
     counterpartyChanged = Signal(object)  # Counterparty | None
+    bookChanged = Signal()
 
     def __init__(self, snapshot: MarketSnapshot | None = None) -> None:
         super().__init__()
@@ -40,8 +33,9 @@ class AppState(QObject):
         self.counterparties: list[Counterparty] = load_seed_counterparties()
         self.trade: Trade | None = None
         self.counterparty: Counterparty | None = None
-        self.existing_set: NettingSet = _empty_netting_set()
+        self.book: list[Trade] = []
 
+    # -- proposed trade / counterparty ------------------------------------- #
     def set_trade(self, trade: Trade | None) -> None:
         """Set (or clear) the proposed trade and notify listeners."""
         self.trade = trade
@@ -50,11 +44,37 @@ class AppState(QObject):
     def set_counterparty(self, counterparty: Counterparty | None) -> None:
         """Set (or clear) the selected counterparty and notify listeners."""
         self.counterparty = counterparty
-        self.existing_set = _empty_netting_set(
-            counterparty.counterparty_id if counterparty else ""
-        )
         self.counterpartyChanged.emit(counterparty)
 
+    # -- existing-trades book ---------------------------------------------- #
+    @property
+    def existing_set(self) -> NettingSet:
+        """The counterparty's book of existing trades as a netting set."""
+        cid = self.counterparty.counterparty_id if self.counterparty else ""
+        return NettingSet(
+            netting_set_id=f"NS-{cid}" if cid else "NS",
+            counterparty_id=cid,
+            trades=tuple(self.book),
+        )
+
+    def add_to_book(self, trade: Trade) -> None:
+        """Add an existing trade to the book."""
+        self.book.append(trade)
+        self.bookChanged.emit()
+
+    def remove_from_book(self, index: int) -> None:
+        """Remove the book trade at ``index`` (no-op if out of range)."""
+        if 0 <= index < len(self.book):
+            del self.book[index]
+            self.bookChanged.emit()
+
+    def clear_book(self) -> None:
+        """Empty the book."""
+        if self.book:
+            self.book.clear()
+            self.bookChanged.emit()
+
+    # -- run readiness ----------------------------------------------------- #
     def is_ready(self) -> bool:
         """Whether both a valid trade and counterparty are selected."""
         return self.trade is not None and self.counterparty is not None

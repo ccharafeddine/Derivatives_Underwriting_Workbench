@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QPushButton,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
@@ -81,7 +83,10 @@ class TradeTab(QWidget):
         super().__init__()
         self._app_state = app_state
         self._build_ui()
+        if app_state is not None:
+            app_state.bookChanged.connect(self._refresh_book)
         self._refresh()
+        self._refresh_book()
 
     # -- construction ------------------------------------------------------ #
     def _build_ui(self) -> None:
@@ -126,18 +131,19 @@ class TradeTab(QWidget):
 
         summary_panel = QWidget()
         summary_layout = QVBoxLayout(summary_panel)
-        summary_layout.addWidget(QLabel("<b>Trade summary</b>"))
+        summary_layout.addWidget(QLabel("<b>Proposed trade</b>"))
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         self.summary.setObjectName("trade_summary")
         summary_layout.addWidget(self.summary)
-        summary_layout.addStretch(1)
         self.status = QLabel()
         self.status.setObjectName("trade_status")
         self.status.setWordWrap(True)
         summary_layout.addWidget(self.status)
+        summary_layout.addWidget(self._build_book_box())
+        summary_layout.addStretch(1)
         splitter.addWidget(summary_panel)
-        splitter.setSizes([560, 360])
+        splitter.setSizes([560, 400])
 
         outer = QHBoxLayout(self)
         outer.addWidget(splitter)
@@ -151,6 +157,55 @@ class TradeTab(QWidget):
         self.currency.currentIndexChanged.connect(self._refresh)
         self.trade_date.dateChanged.connect(self._refresh)
         self.maturity_date.dateChanged.connect(self._refresh)
+
+    def _build_book_box(self) -> QGroupBox:
+        box = QGroupBox("Existing book (nets against the proposed trade)")
+        layout = QVBoxLayout(box)
+        self.book_list = QListWidget()
+        self.book_list.setMaximumHeight(120)
+        layout.addWidget(self.book_list)
+        row = QHBoxLayout()
+        self.add_book_btn = QPushButton("Add current to book")
+        self.remove_book_btn = QPushButton("Remove selected")
+        self.clear_book_btn = QPushButton("Clear")
+        self.add_book_btn.clicked.connect(self._on_add_to_book)
+        self.remove_book_btn.clicked.connect(self._on_remove_from_book)
+        self.clear_book_btn.clicked.connect(self._on_clear_book)
+        for btn in (self.add_book_btn, self.remove_book_btn, self.clear_book_btn):
+            row.addWidget(btn)
+        layout.addLayout(row)
+        return box
+
+    # -- book -------------------------------------------------------------- #
+    def _on_add_to_book(self) -> None:
+        trade = self.build_trade()
+        if trade is not None and self._app_state is not None:
+            self._app_state.add_to_book(trade)
+
+    def _on_remove_from_book(self) -> None:
+        row = self.book_list.currentRow()
+        if row >= 0 and self._app_state is not None:
+            self._app_state.remove_from_book(row)
+
+    def _on_clear_book(self) -> None:
+        if self._app_state is not None:
+            self._app_state.clear_book()
+
+    def _refresh_book(self) -> None:
+        trades = self._app_state.book if self._app_state is not None else []
+        self.book_list.clear()
+        for trade in trades:
+            self.book_list.addItem(self._book_label(trade))
+        has = len(trades) > 0
+        self.remove_book_btn.setEnabled(has)
+        self.clear_book_btn.setEnabled(has)
+
+    @staticmethod
+    def _book_label(trade: Trade) -> str:
+        return (
+            f"{trade.product}  {trade.notional:,.0f} {trade.currency}"
+            f"  ·  {trade.tenor_years:.1f}y"
+        )
 
     def _build_irs_page(self) -> QWidget:
         box = QGroupBox("Swap terms")
@@ -331,6 +386,7 @@ class TradeTab(QWidget):
         else:
             self.summary.setText("—")
             self.status.setText(f"<span style='color:#c62828'>{error}</span>")
+        self.add_book_btn.setEnabled(trade is not None)
         if self._app_state is not None:
             self._app_state.set_trade(trade)
 
