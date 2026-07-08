@@ -17,30 +17,6 @@ analysis.
 
 ---
 
-## Screenshots
-
-The core output — expected exposure, the PFE 95/99 cone, and peak PFE for a
-proposed 5-year payer swap against a synthetic counterparty:
-
-![Exposure profile](docs/images/exposure.png)
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/trade.png" alt="Trade input tab"><br><b>Trade</b> — term-sheet entry, fields switch by product (IRS / FX / CDS)</td>
-    <td width="50%"><img src="docs/images/counterparty.png" alt="Counterparty tab"><br><b>Counterparty</b> — financials that feed the Merton and Altman models</td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/collateral.png" alt="Collateral tab"><br><b>Collateral</b> — CSA effect on exposure with editable inputs</td>
-    <td><img src="docs/images/cva.png" alt="CVA tab"><br><b>CVA</b> — CVA / DVA / BCVA and the per-interval contributions</td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/limits.png" alt="Limits tab"><br><b>Limits</b> — utilization and headroom against the counterparty line</td>
-    <td><img src="docs/images/memo.png" alt="Memo tab"><br><b>Memo</b> — the underwriting memo with HTML / PDF / PPTX export</td>
-  </tr>
-</table>
-
----
-
 ## What it does
 
 A corporate derivatives underwriting desk answers one question for every
@@ -56,6 +32,8 @@ terms for each leg. The trade is added to the counterparty's existing netting
 set so exposure is measured on the net position, the way an ISDA master
 agreement actually works.
 
+![Trade input tab](docs/images/trade.png)
+
 ### 2. Counterparty
 
 Assess the counterparty's creditworthiness. A KMV-style Merton model derives a
@@ -64,6 +42,8 @@ Altman Z-score summarizes balance-sheet health; the two are mapped to an
 internal rating grade and a probability-of-default term structure. Public
 counterparties can be populated from market data; private ones from the bundled
 synthetic set.
+
+![Counterparty tab](docs/images/counterparty.png)
 
 ### 3. Exposure
 
@@ -75,12 +55,16 @@ netting set on every path at every date, and reads off the exposure profile:
 - **Potential Future Exposure (PFE)** at 95% and 99%, and **peak PFE**
 - The full exposure cone over time
 
+![Exposure tab](docs/images/exposure.png)
+
 ### 4. Limits
 
 Check the trade against a per-counterparty credit limit. The netting set is
 aggregated across existing and proposed trades to show current utilization,
 remaining headroom, the **incremental** exposure the new trade adds, and a clear
 flag when it would breach the limit.
+
+![Limits tab](docs/images/limits.png)
 
 ### 5. Collateral
 
@@ -89,12 +73,16 @@ margin, and margin period of risk — and see how much it reduces exposure.
 Collateralized and uncollateralized PFE are shown side by side so the risk
 mitigation is explicit.
 
+![Collateral tab](docs/images/collateral.png)
+
 ### 6. CVA
 
 Compute the Credit Valuation Adjustment: the market value of the counterparty's
 default risk, built from the expected-exposure profile, the counterparty's
 survival curve, and discounting. The symmetric own-credit adjustment (DVA) and
 the bilateral net (BCVA) are reported alongside.
+
+![CVA tab](docs/images/cva.png)
 
 ### 7. Memo
 
@@ -103,12 +91,16 @@ exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
 Plain-English commentary is generated across every section by an interpretation
 engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
+![Memo tab](docs/images/memo.png)
+
 ### 8. Pipeline
 
 Track multiple transactions through their approval stages — Requested → Under
 review → Credit approved → Documented → Executed — since underwriting means
 juggling many deals at different stages at once. Runs are saved locally and can
 be reopened.
+
+![Pipeline board](docs/images/pipeline.png)
 
 ---
 
