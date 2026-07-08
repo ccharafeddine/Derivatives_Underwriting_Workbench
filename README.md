@@ -6,22 +6,33 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A desktop application that reconstructs the counterparty-credit underwriting
-workflow for OTC derivatives. Give it a proposed trade — an interest rate swap,
-FX forward, credit default swap, swaption, or cross-currency swap — and it
-quantifies the counterparty exposure the trade creates, prices in the
-counterparty's credit risk (CVA/DVA/FVA, with a wrong-way-risk option), checks it
-against limits, models the effect of collateral, reports risk sensitivities, and
-produces an underwriting memo with a recommendation.
+**Purpose-built educational software that teaches the OTC derivatives
+counterparty-credit underwriting workflow** — suitable for a Master's-level
+derivatives course or serious self-study. It walks you, step by step, through
+the decision a corporate derivatives underwriting desk makes on every proposed
+trade, and makes the mechanics of each step visible and manipulable so the
+concepts stick.
+
+Give it a proposed trade — an interest rate swap, FX forward, credit default
+swap, swaption, or cross-currency swap — and it quantifies the counterparty
+exposure the trade creates, prices in the counterparty's credit risk
+(CVA/DVA/FVA, with a wrong-way-risk option), checks it against limits, models the
+effect of collateral, reports risk sensitivities, and produces an underwriting
+memo with a recommendation. Each stage is exposed rather than black-boxed, so
+you can change an input and watch the output respond.
 
 Built with PySide6/Qt6. Runs fully offline on a bundled synthetic market
 snapshot; can optionally pull public-company financials for counterparty credit
 analysis.
 
-> **This is an educational portfolio project.** It runs on synthetic and public
-> data only. It is not a production risk system, executes no trades, and is not
-> affiliated with or endorsed by any financial institution. Nothing it produces
-> is investment, credit, or legal advice.
+> **Synthetic data is a design choice, not a shortcoming.** This is teaching
+> software, so it runs on synthetic and instructor-authorable data (plus
+> optional public financials) on purpose: controllable, reproducible scenarios
+> let a lesson isolate one concept at a time — hold everything fixed and move
+> only the credit spread, or only the correlation, and see exactly what changes.
+> It is not a production risk system, executes no trades, and is not affiliated
+> with or endorsed by any financial institution. Nothing it produces is
+> investment, credit, or legal advice.
 
 ---
 
@@ -30,9 +41,16 @@ analysis.
 A corporate derivatives underwriting desk answers one question for every
 proposed trade: *should we take this counterparty exposure, at what limit, with
 what collateral, and what does it do to our book?* This app models that
-decision end to end.
+decision end to end — and its tabs are arranged as a learning progression, each
+teaching one concept and building on the ones before it: from the trade and
+counterparty, to exposure, to collateral and limits, to the credit-risk pricing
+(CVA/DVA/FVA and wrong-way risk) that sits on top. A **Teaches** note on each
+section names the concept it targets.
 
 ### 1. Trade
+
+*Teaches: netting — why exposure is measured on the net position under an ISDA
+master, not trade by trade.*
 
 Capture a proposed trade as a term sheet: product (interest rate swap, FX
 forward, credit default swap, European swaption, or cross-currency swap),
@@ -43,6 +61,9 @@ net position, the way an ISDA master agreement actually works.
 ![Trade input tab](docs/images/trade.png)
 
 ### 2. Counterparty
+
+*Teaches: distance-to-default and PD — how a structural (Merton/KMV) model and
+a balance-sheet score turn equity and financials into a default probability.*
 
 Assess the counterparty's creditworthiness. A KMV-style Merton model derives a
 distance-to-default and default probability from equity value and volatility; an
@@ -55,6 +76,9 @@ degrading to synthetic data); private names come from the bundled synthetic set.
 
 ### 3. Market
 
+*Teaches: the risk drivers — how curves, FX spots, and credit spreads feed
+pricing, so you can change one driver and see exposure and CVA respond.*
+
 Inspect and edit the market the trade is priced against: zero curves by currency,
 FX spots, and CDS spread curves by issuer. Change a rate, spot, or spread and
 Apply, and the next analysis prices against your values — a quick way to test how
@@ -63,6 +87,9 @@ the drivers move exposure and CVA (or reset to the bundled snapshot).
 ![Market tab](docs/images/market.png)
 
 ### 4. Exposure
+
+*Teaches: expected exposure vs potential future exposure — how a distribution of
+future MtM becomes EE, EPE, and PFE, and why the profile has the shape it does.*
 
 The core engine. Monte Carlo simulation evolves the trade's risk factors
 (interest rates, FX, credit spreads) forward over the trade's life, reprices the
@@ -76,6 +103,9 @@ netting set on every path at every date, and reads off the exposure profile:
 
 ### 5. Limits
 
+*Teaches: limit utilization and incremental exposure — why the marginal PFE a
+new trade adds to an existing book, not its standalone risk, is what matters.*
+
 Check the trade against a per-counterparty credit limit. The netting set is
 aggregated across existing and proposed trades to show current utilization,
 remaining headroom, the **incremental** exposure the new trade adds, and a clear
@@ -85,14 +115,24 @@ flag when it would breach the limit.
 
 ### 6. Collateral
 
+*Teaches: collateralized vs uncollateralized exposure — how a CSA cuts exposure,
+and why the margin period of risk leaves residual gap risk that collateral can't
+remove.*
+
 Model a Credit Support Annex — threshold, minimum transfer amount, initial
 margin, and margin period of risk — and see how much it reduces exposure.
 Collateralized and uncollateralized PFE are shown side by side so the risk
-mitigation is explicit.
+mitigation is explicit. Collateral posted in a different currency than the
+exposure carries an FX haircut, so you can see why cross-currency collateral
+mitigates less.
 
 ![Collateral tab](docs/images/collateral.png)
 
 ### 7. CVA
+
+*Teaches: CVA/DVA/FVA and wrong-way risk — how expected exposure, a survival
+curve, and discounting combine into the price of default risk, and how that
+price moves when exposure and credit quality are correlated.*
 
 Compute the Credit Valuation Adjustment: the market value of the counterparty's
 default risk, built from the expected-exposure profile, the counterparty's
@@ -106,6 +146,9 @@ risk.
 
 ### 8. Scenario
 
+*Teaches: stress sensitivity — how exposure, CVA, and limit use respond when the
+market moves, via a hands-on sandbox of shocks compared against the base case.*
+
 Stress test the proposed trade. Apply market shocks — a parallel rate shift, a
 curve steepener/flattener, an FX move, and credit-spread widening (with named
 presets like *Risk-off* and *Credit crunch*) — and re-run to compare base vs
@@ -115,6 +158,10 @@ exposure profiles overlaid.
 ![Scenario tab](docs/images/scenario.png)
 
 ### 9. Sensitivities
+
+*Teaches: risk sensitivities and common random numbers — what DV01, CS01, and FX
+delta mean, and why reusing the Monte Carlo seed is what makes a finite-
+difference bump readable at all.*
 
 Bump-and-reprice risk sensitivities of the headline numbers: DV01 (per 1bp
 parallel rate move) and FX delta (per 1% FX move) of peak PFE and CVA, and CS01
@@ -126,6 +173,9 @@ simulation noise.
 
 ### 10. Memo
 
+*Teaches: the underwriting decision — how the separate metrics come together
+into a single reasoned recommendation, with plain-English commentary on each.*
+
 Generate a one-page underwriting memo: trade summary, counterparty snapshot,
 exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
 Plain-English commentary is generated across every section by an interpretation
@@ -135,12 +185,38 @@ engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
 ### 11. Pipeline
 
+*Teaches: the approval lifecycle — how a deal moves through underwriting stages,
+and that a desk juggles many trades at different stages at once.*
+
 Track multiple transactions through their approval stages — Requested → Under
 review → Credit approved → Documented → Executed — since underwriting means
 juggling many deals at different stages at once. Runs are saved locally and can
 be reopened.
 
 ![Pipeline board](docs/images/pipeline.png)
+
+---
+
+## How it teaches
+
+The learning scaffolding is a first-class part of the app, not incidental UI:
+
+- **One-click example deals** (**Help → Load Example**) — an investment-grade
+  swap, a distressed-name CDS, a limit-breaching trade, and a netted book. Each
+  loads a complete, runnable scenario so a newcomer can go from launch to a full
+  analysis in a single click and start from a worked example rather than a blank
+  form.
+- **Glossary** (**Help → Glossary**) — a plain-English definition of every term
+  the app reports (EE, EPE, PFE, CVA/DVA/FVA, DtD, CSA, MPoR, and more).
+- **Metric tooltips** — the same glossary definitions attach to metric labels
+  throughout the UI, so the explanation is one hover away from the number.
+- **Scenario sandbox** (the Scenario tab) — a hands-on space to apply market
+  shocks and watch exposure, CVA, and limit utilization move against the base
+  case, so cause and effect are visible rather than asserted.
+- **Editable market inputs** (the Market tab) — change a curve, spot, or spread
+  and re-run to see how the drivers move the outputs.
+- **Reproducibility** — every run saves its Monte Carlo seed and full
+  configuration, so a scenario reproduces exactly and can be shared or revisited.
 
 ---
 
@@ -219,12 +295,38 @@ To build a native desktop binary (`.msi` / `.dmg`), see
 
 ## Scope
 
-v1 covers interest rate swaps, FX forwards, and credit default swaps;
-counterparty credit via Merton and Altman; Monte Carlo exposure with EE/PFE;
-CVA/DVA; CSA collateral modeling; limit checking; the underwriting memo; and the
-deal pipeline. Wrong-way risk, XVA terms beyond CVA/DVA, multi-currency
-collateral, and additional products are deliberately out of scope and left as
-extension points.
+v1.0.0 covers five products (interest rate swap, FX forward, credit default
+swap, European swaption, fixed-for-fixed cross-currency swap); counterparty
+credit via Merton and Altman; Monte Carlo exposure with EE/EPE/PFE; collateral
+modeling with a CSA, MPoR, and multi-currency FX haircut; CVA, DVA, BCVA, FVA,
+and an optional wrong-way-risk tilt; DV01/CS01/FX-delta sensitivities; scenario
+stress testing; limit checking; the underwriting memo; and the deal pipeline.
+
+Further quantitative extension points left for later include other XVA terms
+(KVA/MVA), additional products (caps/floors), and richer multi-curve
+construction (OIS discounting vs projection).
+
+---
+
+## Educational roadmap
+
+These are the app's intended next direction as teaching software. **They are
+not built yet** — this section describes future work, not current features.
+
+- **Role-play underwriting simulator.** A proposed deal each round: you assess
+  the counterparty, set collateral and limits, and price the trade; then
+  simulated time advances, counterparties migrate in credit quality and some
+  default, and you live with the consequences of earlier decisions — scored on
+  risk-adjusted P&L.
+- **Interactive concept labs.** A slider-and-live-chart sandbox for each
+  concept: for example, a wrong-way-risk lab where correlation is a slider and
+  CVA redraws live, or a collateral lab where threshold, MTA, and MPoR move and
+  collateralized PFE responds. The aim is to surface the newer quantitative
+  features (FVA, wrong-way risk, sensitivities) as things you manipulate, not
+  numbers you read.
+- **Instructor mode.** Author and share a scenario — scripted counterparty
+  credit paths, a market path, a deal stream, and defaults — and review student
+  decisions against it.
 
 ---
 

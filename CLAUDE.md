@@ -7,28 +7,73 @@ start of every session before writing any code.
 
 ## What this is
 
-**Derivatives Underwriting Workbench** (working name; package `duw`) is a
-desktop analytics application that reconstructs the counterparty-credit
-underwriting workflow for OTC derivatives — the decision a corporate
+**Derivatives Underwriting Workbench** (working name; package `duw`) is
+**purpose-built educational software that teaches the OTC derivatives
+counterparty-credit underwriting workflow** — the decision a corporate
 derivatives underwriting desk makes when a client wants to enter an interest
 rate, FX, or credit derivative trade: *should we take this counterparty
 exposure, at what limit, with what collateral, and what does it do to our
-book?*
+book?* It is aimed at a Master's-level derivatives course or serious
+self-study.
 
-The app takes a proposed trade, quantifies the counterparty exposure it
-creates, prices in the counterparty's credit risk, checks it against limits,
-and produces an underwriting memo with a recommendation.
+It is a desktop analytics app that walks the learner through that decision end
+to end: take a proposed trade, quantify the counterparty exposure it creates,
+price in the counterparty's credit risk (CVA/DVA/FVA, with a wrong-way-risk
+option), check it against limits, model the effect of collateral, report risk
+sensitivities, and produce an underwriting memo with a recommendation. The
+point is not to hand back a number — it is to make the mechanics of each step
+visible and manipulable so the concept sticks.
 
-### Honest framing (this is load-bearing — keep it true in code and docs)
+### Educational identity and pedagogical-data principle (load-bearing — keep it true in code and docs)
 
-- This is a **portfolio / educational project**, not a production risk system
-  and not affiliated with, endorsed by, or connected to any bank.
-- It runs entirely on **synthetic and public data**. There is no proprietary
-  data, no live trade feed, no internal credit system.
-- It does not execute, book, or route trades. It is an analysis tool.
+- This is **teaching software**, not a production risk system, and not
+  affiliated with, endorsed by, or connected to any bank. It is also the
+  author's portfolio project, but its primary identity is educational.
+- It runs entirely on **synthetic and instructor-authorable data** (plus
+  optional public-company financials). This is a **deliberate pedagogical
+  choice, not a limitation**: synthetic, controllable scenarios are
+  reproducible and let a lesson isolate one concept at a time (e.g. hold
+  everything fixed and move only the credit spread). There is no proprietary
+  data, no live trade feed, no internal credit system — and none is wanted.
+- It does not execute, book, or route trades. It is an analysis and learning
+  tool.
 - Nothing it outputs is investment, credit, or legal advice.
 - Do not add copy anywhere (UI, README, comments, memos) that implies this is a
-  real bank's system or that it "automates the job." It models the *workflow*.
+  real bank's system or that it "automates the job." It teaches the *workflow*.
+
+### Teaching-software design principles (guide all future work)
+
+- **Expose the internals, don't black-box the result.** Show the intermediate
+  objects — the MtM cube, the exposure profile, the survival curve, the
+  per-interval CVA contributions — not just the headline number. A student
+  should be able to see *why* a figure came out the way it did.
+- **Scaffold concepts in dependency order.** Netting before exposure; exposure
+  before collateral; PD and survival curves before CVA; CVA before DVA/FVA and
+  wrong-way risk. Build and present features so an earlier concept is in place
+  before the one that depends on it.
+- **Make inputs manipulable and outputs live.** The learner should learn by
+  adjusting an input and watching the output respond. Newer quantitative
+  features (FVA, wrong-way risk, sensitivities, swaptions, cross-currency
+  swaps, multi-currency collateral) must be surfaced as manipulable concept
+  labs, not left as backend-only numbers.
+
+### Educational roadmap (intended direction — NOT yet built)
+
+Future sessions should build toward these so the work stays coherent. None of
+these exist in the code today; do not describe them as implemented.
+
+- **Role-play underwriting simulator.** A proposed deal each round; the student
+  assesses the counterparty, sets collateral and limits, and prices it;
+  simulated time then advances, counterparties migrate in credit quality and
+  some default, and the student sees the consequences of earlier decisions,
+  scored on risk-adjusted P&L.
+- **Interactive concept labs.** A slider-and-live-chart sandbox per concept —
+  e.g. a wrong-way-risk lab where the correlation is a slider and CVA responds
+  live; a collateral lab where threshold/MTA/MPoR move and collateralized PFE
+  redraws.
+- **Instructor mode.** Author and share a scenario — scripted counterparty
+  credit paths, a market path, a deal stream, and defaults — and review student
+  decisions against it.
 
 ---
 
@@ -62,8 +107,12 @@ apply.
 src/duw/
   app.py                # QApplication entry point + main window wiring
   config.py             # AppSettings over QSettings
+  glossary.py           # plain-English term definitions (glossary dialog + tooltips)
+  examples.py           # ready-made one-click example deals
+  updates.py            # update-check helper
   domain/
-    instruments.py      # Trade base + IRS, FXForward, CDS dataclasses; NettingSet
+    instruments.py      # Trade base + IRS, FXForward, CDS, Swaption,
+                        #   CrossCurrencySwap dataclasses; NettingSet
     market.py           # MarketSnapshot: yield curves, FX, credit spreads, vols
     counterparty.py     # Counterparty + CreditProfile
     results.py          # AnalysisResults + all sub-result dataclasses
@@ -71,16 +120,21 @@ src/duw/
   pricing/
     curves.py           # discount curve, interpolation, survival curve bootstrap
     irs.py  fx_forward.py  cds.py
+    swaption.py         # European swaption (Black on the forward swap rate)
+    xccy.py             # fixed-for-fixed cross-currency swap (two-curve, FX)
   risk/
     simulators.py       # HW1F rates, GBM FX, mean-reverting credit spread
     exposure.py         # ExposureEngine: MtM cube -> EE/EPE/PFE/peak, profile
-    collateral.py       # CSA application (threshold, MTA, IM, MPoR)
-    cva.py              # CVA / DVA / BCVA
+    collateral.py       # CSA application (threshold, MTA, IM, MPoR, FX haircut)
+    cva.py              # CVA / DVA / BCVA / FVA + wrong-way-risk EE tilt
     limits.py           # netting-set limit checks, incremental exposure
+    scenarios.py        # market shocks for scenario stress testing
+    sensitivities.py    # DV01 / CS01 / FX delta by finite difference (CRN)
   credit/
     merton.py           # KMV-style distance-to-default and PD
     altman.py           # Altman Z-score
     rating.py           # PD -> internal grade, PD term structure
+    public_data.py      # optional yfinance financials pull (offline-safe)
   pipeline/
     orchestrator.py     # sequential steps -> AnalysisResults
     worker.py           # QThread worker + progress signals
@@ -90,7 +144,8 @@ src/duw/
     deck.py             # optional PPTX
   ui/
     main_window.py
-    tabs/               # trade, counterparty, exposure, limits, collateral, cva, memo, pipeline
+    tabs/               # trade, counterparty, market, exposure, limits,
+                        #   collateral, cva, scenario, sensitivities, memo, pipeline
     widgets/            # plotly view, result tables, shared controls
   store/
     deals.py            # deal-pipeline persistence (local SQLite or JSON)
@@ -118,7 +173,7 @@ Step 4  Reprice across time grid     MtM cube: trades x paths x time
 Step 5  Aggregate netting set        net MtM per path/time
 Step 6  Compute exposure profile     EE, EPE, PFE(95/99), peak PFE, cone
 Step 7  Apply collateral (CSA)       collateralized vs uncollateralized exposure
-Step 8  Compute CVA / DVA / BCVA     from EE profile x marginal PD x discount
+Step 8  Compute CVA/DVA/BCVA/FVA     from EE profile x marginal PD x discount (+ wrong-way tilt)
 Step 9  Check limits                 utilization, headroom, breach, incremental
 Step 10 Interpret + generate memo    commentary + recommendation
 Step 11 Save outputs                 run config (JSON, for reproducibility) + reports
@@ -151,7 +206,11 @@ its run config as JSON.
 - **DtD** — distance-to-default (Merton/KMV). **PD** — probability of default.
   **LGD** — loss given default (`1 − recovery`).
 - **Wrong-way risk** — exposure rising as the counterparty's credit worsens
-  (correlation between exposure and PD). Out of scope for v1; leave a hook.
+  (correlation between exposure and PD). Implemented as a simplified one-factor
+  rank tilt of expected exposure by a correlation `rho` (`wrong_way_adjusted_ee`
+  in `risk/cva.py`): `rho = 0` reproduces independence, `rho > 0` raises CVA.
+- **FVA** — Funding Valuation Adjustment: the funding cost/benefit on net
+  uncollateralized exposure, computed alongside CVA/DVA (`compute_fva`).
 
 ---
 
@@ -166,6 +225,10 @@ its run config as JSON.
   - FX forward: covered interest parity; MtM = discounted (contracted forward −
     prevailing forward) × notional.
   - CDS: PV(protection leg) − PV(premium leg) using the survival curve.
+  - Swaption: European, Black on the forward swap rate against the discount
+    curve annuity.
+  - Cross-currency swap: fixed-for-fixed, two-curve, FX-sensitive (each leg PV'd
+    on its own currency's curve and converted at spot).
 - **Risk-factor simulation** (deterministic seed): Hull-White one-factor for the
   short rate (fits the initial curve); GBM for FX spot with drift = rate
   differential; mean-reverting (Ornstein-Uhlenbeck / CIR-style) process for the
@@ -177,6 +240,17 @@ its run config as JSON.
 - **Collateral**: apply CSA to the net exposure with a simplified MPoR model —
   collateralized exposure is exposure above the threshold accrued over the MPoR
   window, plus IM offset. Report collateralized vs uncollateralized side by side.
+  Multi-currency collateral is supported via an FX haircut that discounts the
+  value of collateral posted in a currency other than the netting-set currency
+  (`CSA.fx_haircut`); a zero haircut recovers single-currency behavior.
+- **CVA/DVA/FVA and wrong-way risk**: CVA from the EE profile × marginal PD ×
+  discount; DVA the symmetric own-credit leg on ENE; BCVA = CVA − DVA; FVA the
+  funding leg on net uncollateralized exposure; and an optional wrong-way rank
+  tilt of EE (see the glossary entries above).
+- **Sensitivities**: DV01, CS01, and FX delta of peak PFE and CVA by one-sided
+  finite difference over a bumped market snapshot, reusing the Monte Carlo seed
+  (common random numbers) so the difference reflects the market move, not
+  simulation noise.
 - **Counterparty credit**: KMV-style Merton (solve `E = V·N(d1) − D·e^{−rT}·N(d2)`
   and `σ_E·E = σ_V·V·N(d1)` for asset value/vol; `DtD = (ln(V/D)+(μ−½σ_V²)T)/(σ_V√T)`;
   `PD = N(−DtD)`), Altman Z-score from financials, and a PD term structure from
@@ -218,12 +292,23 @@ Do not end a session with failing gates or a broken app launch.
 
 ## DO NOT (scope boundaries)
 
-- Do not turn this into a trading, execution, or booking system.
+- Do not turn this into a trading, execution, or booking system. It teaches the
+  workflow; it does not execute, book, or route trades.
 - Do not add cloud API keys, telemetry, accounts, or ads.
 - Do not couple to the Portfolio Analyzer repo — this is standalone.
-- Do not add products beyond IRS / FX forward / CDS in v1 without being asked.
-- Do not implement wrong-way risk, XVA beyond CVA/DVA, or multi-currency
-  collateral in v1 — leave hooks, not implementations.
-- Do not put real, proprietary, or bank-identifying data anywhere.
+- Do not put real, proprietary, or bank-identifying data anywhere. Synthetic
+  and instructor-authored data is the intended source, by design.
+- Do not trade model rigor for game-iness. The teaching layer (glossary,
+  tooltips, examples, concept labs, the future simulator) is a wrapper *around*
+  correct models — never a simplification of them. Make a model clearer, not
+  weaker.
+- Do not describe roadmap / not-yet-built features (the underwriting simulator,
+  interactive concept labs, instructor mode) as if they are already
+  implemented, in code, docs, UI, or memos.
+- Do not add new products or XVA terms beyond what is currently built (IRS, FX
+  forward, CDS, European swaption, cross-currency swap; CVA/DVA/BCVA/FVA and
+  wrong-way risk) without being asked. KVA/MVA, caps/floors, and OIS
+  discounting vs projection are documented future extension points, not current
+  scope.
 - Do not expand a session's stated scope; if you discover adjacent work, note it
   for a future session rather than doing it now.
