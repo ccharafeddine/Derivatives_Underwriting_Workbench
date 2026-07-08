@@ -57,6 +57,7 @@ from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.scenario_tab import ScenarioTab
 from duw.ui.tabs.sensitivities_tab import SensitivitiesTab
+from duw.ui.tabs.simulator_tab import SimulatorTab
 from duw.ui.tabs.trade_tab import TradeTab
 from duw.ui.theme import THEMES, apply_theme
 from duw.ui.update_check import check_async
@@ -75,6 +76,7 @@ TAB_NAMES: tuple[str, ...] = (
     "Sensitivities",
     "Memo",
     "Pipeline",
+    "Simulator",
 )
 
 
@@ -112,6 +114,7 @@ class MainWindow(QMainWindow):
         self.memo_tab = MemoTab()
         self.pipeline_tab = PipelineTab(self.store)
         self.pipeline_tab.reopenRequested.connect(self._on_reopen)
+        self.simulator_tab = SimulatorTab()
 
         self._build_tabs()
         self._build_menu_bar()
@@ -140,6 +143,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.sensitivities_tab, "Sensitivities")
         self.tabs.addTab(self.memo_tab, "Memo")
         self.tabs.addTab(self.pipeline_tab, "Pipeline")
+        self.tabs.addTab(self.simulator_tab, "Simulator")
         self.setCentralWidget(self.tabs)
 
     def _build_menu_bar(self) -> None:

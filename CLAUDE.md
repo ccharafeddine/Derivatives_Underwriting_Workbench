@@ -145,8 +145,9 @@ src/duw/
     deck.py             # optional PPTX
   ui/
     main_window.py
-    tabs/               # trade, counterparty, market, exposure, limits,
-                        #   collateral, cva, scenario, sensitivities, memo, pipeline
+    simulator_run.py    # QThread worker that runs ScenarioEngine off the UI thread
+    tabs/               # trade, counterparty, market, exposure, limits, collateral,
+                        #   cva, scenario, sensitivities, memo, pipeline, simulator
     widgets/            # plotly view, result tables, shared controls
   store/
     deals.py            # deal-pipeline persistence (local SQLite or JSON)

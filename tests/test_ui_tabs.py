@@ -162,6 +162,7 @@ def test_main_window_builds_all_tabs(qapp) -> None:
         "Sensitivities",
         "Memo",
         "Pipeline",
+        "Simulator",
     ]
 
 

@@ -204,6 +204,43 @@ def scenario_figure(
     return _base_layout(fig, "Base vs stressed exposure")
 
 
+def simulator_consequence_figure(
+    peak_pfe: float | None,
+    collateralized_peak_pfe: float | None,
+    limit: float | None,
+) -> go.Figure:
+    """Peak PFE uncollateralized vs after collateral, against the limit.
+
+    The consequence preview for a simulator deal: two bars (before and after the
+    chosen CSA) with the credit limit as a reference line, colored red when the
+    uncollateralized peak breaches the limit.
+    """
+    if peak_pfe is None or math.isnan(peak_pfe):
+        return _placeholder("Adjust the deal to preview its exposure.")
+    collat = (
+        0.0 if collateralized_peak_pfe is None else max(collateralized_peak_pfe, 0.0)
+    )
+    breach = limit is not None and not math.isnan(limit) and peak_pfe > limit
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=["Uncollateralized", "After collateral"],
+            y=[max(peak_pfe, 0.0), collat],
+            marker_color=[_BREACH if breach else _UNCOLLAT, _COLLAT],
+        )
+    )
+    if limit is not None and not math.isnan(limit):
+        fig.add_hline(
+            y=limit,
+            line=dict(color="#111", width=2, dash="dash"),
+            annotation_text=f"Limit {limit:,.0f}",
+            annotation_position="top left",
+        )
+    fig = _base_layout(fig, "Peak PFE vs limit", ytitle="Peak PFE (95%)")
+    fig.update_layout(showlegend=False, xaxis_title="")
+    return fig
+
+
 def cva_figure(cva: CVAResult | None) -> go.Figure:
     """Per-interval CVA contributions over time, titled with the totals."""
     if cva is None or not cva.time_grid:
