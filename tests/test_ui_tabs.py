@@ -159,6 +159,7 @@ def test_main_window_builds_all_tabs(qapp) -> None:
         "Collateral",
         "CVA",
         "Scenario",
+        "Sensitivities",
         "Memo",
         "Pipeline",
     ]

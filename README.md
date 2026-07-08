@@ -112,7 +112,17 @@ exposure profiles overlaid.
 
 ![Scenario tab](docs/images/scenario.png)
 
-### 9. Memo
+### 9. Sensitivities
+
+Bump-and-reprice risk sensitivities of the headline numbers: DV01 (per 1bp
+parallel rate move) and FX delta (per 1% FX move) of peak PFE and CVA, and CS01
+(per 1bp credit-spread move) of CVA. Every bump reuses the same Monte Carlo seed
+(common random numbers) so the difference reflects the market move, not
+simulation noise.
+
+![Sensitivities tab](docs/images/sensitivities.png)
+
+### 10. Memo
 
 Generate a one-page underwriting memo: trade summary, counterparty snapshot,
 exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
@@ -121,7 +131,7 @@ engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
 ![Memo tab](docs/images/memo.png)
 
-### 10. Pipeline
+### 11. Pipeline
 
 Track multiple transactions through their approval stages — Requested → Under
 review → Credit approved → Documented → Executed — since underwriting means

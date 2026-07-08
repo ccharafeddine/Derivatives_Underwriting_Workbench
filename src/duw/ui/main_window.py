@@ -1,10 +1,10 @@
 """Main window.
 
 The composed :class:`QMainWindow`: a traditional File / Edit / View / Settings
-menu bar, a :class:`QTabWidget` of the eight workflow tabs (Trade and
-Counterparty are input tabs; Exposure, Limits, Collateral, and CVA are analytics
-tabs; Memo and Pipeline remain placeholders), a shared
-:class:`~duw.ui.app_state.AppState`, and a Run Analysis action.
+menu bar and a :class:`QTabWidget` of the workflow tabs — Trade, Counterparty,
+and Market are inputs; Exposure, Limits, Collateral, CVA, Scenario, and
+Sensitivities are analytics; Memo and Pipeline are outputs — over a shared
+:class:`~duw.ui.app_state.AppState`, with a Run Analysis action.
 
 Run launches the pipeline on a background :class:`~duw.pipeline.worker.PipelineWorker`
 thread so the UI stays responsive; progress is shown on a status-bar progress
@@ -46,6 +46,7 @@ from duw.risk.scenarios import ScenarioSpec, apply_scenario
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
 from duw.ui.dialogs import SettingsDialog, show_about, show_glossary
+from duw.ui.sensitivities_run import compute_async as compute_sensitivities_async
 from duw.ui.tabs.collateral_tab import CollateralTab
 from duw.ui.tabs.counterparty_tab import CounterpartyTab
 from duw.ui.tabs.cva_tab import CvaTab
@@ -55,6 +56,7 @@ from duw.ui.tabs.market_tab import MarketTab
 from duw.ui.tabs.memo_tab import MemoTab
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.scenario_tab import ScenarioTab
+from duw.ui.tabs.sensitivities_tab import SensitivitiesTab
 from duw.ui.tabs.trade_tab import TradeTab
 from duw.ui.theme import THEMES, apply_theme
 from duw.ui.update_check import check_async
@@ -70,6 +72,7 @@ TAB_NAMES: tuple[str, ...] = (
     "Collateral",
     "CVA",
     "Scenario",
+    "Sensitivities",
     "Memo",
     "Pipeline",
 )
@@ -103,6 +106,9 @@ class MainWindow(QMainWindow):
         self.cva_tab = CvaTab()
         self.scenario_tab = ScenarioTab()
         self.scenario_tab.stressedRunRequested.connect(self._on_stressed_run)
+        self.sensitivities_tab = SensitivitiesTab()
+        self.sensitivities_tab.computeRequested.connect(self._on_compute_sensitivities)
+        self._sens_signals = None
         self.memo_tab = MemoTab()
         self.pipeline_tab = PipelineTab(self.store)
         self.pipeline_tab.reopenRequested.connect(self._on_reopen)
@@ -131,6 +137,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.collateral_tab, "Collateral")
         self.tabs.addTab(self.cva_tab, "CVA")
         self.tabs.addTab(self.scenario_tab, "Scenario")
+        self.tabs.addTab(self.sensitivities_tab, "Sensitivities")
         self.tabs.addTab(self.memo_tab, "Memo")
         self.tabs.addTab(self.pipeline_tab, "Pipeline")
         self.setCentralWidget(self.tabs)
@@ -266,6 +273,24 @@ class MainWindow(QMainWindow):
             counterparty, existing_set, trade, config, snapshot=shocked, stressed=True
         )
 
+    def _on_compute_sensitivities(self) -> None:
+        """Compute DV01 / CS01 / FX delta off-thread for the last base inputs."""
+        if self._last_inputs is None:
+            return
+        counterparty, existing_set, trade, config = self._last_inputs
+        self.sensitivities_tab.set_busy(True)
+        self._sens_signals = compute_sensitivities_async(
+            counterparty,
+            existing_set,
+            trade,
+            config,
+            self.app_state.snapshot,
+            self._on_sensitivities_result,
+        )
+
+    def _on_sensitivities_result(self, sens: object) -> None:
+        self.sensitivities_tab.set_result(sens)
+
     def _start_run(
         self,
         counterparty: Counterparty,
@@ -310,6 +335,7 @@ class MainWindow(QMainWindow):
         self.collateral_tab.set_results(results)
         self.cva_tab.set_results(results)
         self.scenario_tab.set_base(results, self._last_inputs is not None)
+        self.sensitivities_tab.set_ready(self._last_inputs is not None)
         self.memo_tab.set_results(results)
         self.save_deal_action.setEnabled(True)
         self.tabs.setCurrentWidget(self.exposure_tab)
