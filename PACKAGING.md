@@ -43,7 +43,7 @@ required:
 
 ```bash
 dist/DerivativesUnderwritingWorkbench/DerivativesUnderwritingWorkbench --selftest
-# -> self-test OK (v0.2.0): peak PFE ..., recommendation ..., PDF ok
+# -> self-test OK (v1.0.0): peak PFE ..., recommendation ..., PDF ok
 ```
 
 Then launch the GUI to confirm QtWebEngine renders:

@@ -7,10 +7,12 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A desktop application that reconstructs the counterparty-credit underwriting
-workflow for OTC derivatives. Give it a proposed interest rate, FX, or credit
-derivative trade and it quantifies the counterparty exposure the trade creates,
-prices in the counterparty's credit risk, checks it against limits, models the
-effect of collateral, and produces an underwriting memo with a recommendation.
+workflow for OTC derivatives. Give it a proposed trade — an interest rate swap,
+FX forward, credit default swap, swaption, or cross-currency swap — and it
+quantifies the counterparty exposure the trade creates, prices in the
+counterparty's credit risk (CVA/DVA/FVA, with a wrong-way-risk option), checks it
+against limits, models the effect of collateral, reports risk sensitivities, and
+produces an underwriting memo with a recommendation.
 
 Built with PySide6/Qt6. Runs fully offline on a bundled synthetic market
 snapshot; can optionally pull public-company financials for counterparty credit
