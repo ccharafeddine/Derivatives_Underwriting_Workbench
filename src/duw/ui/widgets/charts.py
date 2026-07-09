@@ -12,6 +12,7 @@ import math
 
 import plotly.graph_objects as go
 
+from duw.domain.market import MarketSnapshot
 from duw.domain.results import (
     CollateralResult,
     CVAResult,
@@ -19,7 +20,12 @@ from duw.domain.results import (
     LimitCheck,
 )
 
-# A small consistent palette used across the tabs.
+# A qualitative color cycle for overlaying several curves (currencies / issuers).
+_SERIES = ("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b")
+
+# A small consistent palette used across the tabs. These series colors read on
+# both a light and a dark background; the background, grid, text, and reference
+# lines are what change with the theme (see ``apply_chart_theme``).
 _EE = "#1f77b4"
 _PFE95 = "#ff7f0e"
 _PFE99 = "#d62728"
@@ -27,6 +33,77 @@ _COLLAT = "#2ca02c"
 _UNCOLLAT = "#7f7f7f"
 _BREACH = "#d62728"
 _OK = "#2ca02c"
+
+# The neutral color the reference lines (limit lines) are drawn with; recolored
+# per theme by ``apply_chart_theme`` so they stay visible on a dark ground.
+_REF_LINE = "#111111"
+# The muted grey used for placeholder text; recolored per theme.
+_PLACEHOLDER = "#888888"
+
+# Per-theme chart chrome: page/plot background, text, grid, and reference lines.
+_CHART_THEMES: dict[str, dict[str, str]] = {
+    "dark": {
+        "template": "plotly_dark",
+        "paper": "#0e0f12",
+        "plot": "#0e0f12",
+        "font": "#d2cbb9",
+        "grid": "#23262c",
+        "zero": "#2f333b",
+        "ref": "#ffab33",
+        "muted": "#9a927f",
+    },
+    "light": {
+        "template": "plotly_white",
+        "paper": "#efe8d8",
+        "plot": "#f5efe2",
+        "font": "#2a2419",
+        "grid": "#d5cbb4",
+        "zero": "#c4b89e",
+        "ref": "#2a2419",
+        "muted": "#6b5f49",
+    },
+}
+
+
+def chart_palette(theme: str) -> dict[str, str]:
+    """Return the chart chrome colors for ``theme`` ("dark" or "light")."""
+    return _CHART_THEMES.get(theme, _CHART_THEMES["dark"])
+
+
+# The full set of colors a reference line / muted annotation may currently hold,
+# so re-theming an already-themed figure re-matches it (not just the original).
+_REF_COLORS = {_REF_LINE, *(t["ref"] for t in _CHART_THEMES.values())}
+_MUTED_COLORS = {_PLACEHOLDER, *(t["muted"] for t in _CHART_THEMES.values())}
+
+
+def apply_chart_theme(fig: go.Figure, theme: str) -> go.Figure:
+    """Restyle a figure's chrome (background, text, grid, reference lines) in place.
+
+    The trace colors are left alone — they read on either background — but the
+    paper/plot backgrounds, font, gridlines, hardcoded reference lines, and
+    annotation text are recolored so the chart sits on the themed app rather than
+    floating as a bright white card. Safe to call repeatedly (e.g. on each theme
+    switch): reference lines and muted text are matched against every theme's
+    colors, not only their original values.
+    """
+    t = chart_palette(theme)
+    fig.update_layout(
+        template=t["template"],
+        paper_bgcolor=t["paper"],
+        plot_bgcolor=t["plot"],
+        font=dict(color=t["font"]),
+    )
+    fig.update_xaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
+    fig.update_yaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
+    # Recolor the reference lines so they do not vanish on a dark ground.
+    for shape in fig.layout.shapes:
+        if shape.line is not None and shape.line.color in _REF_COLORS:
+            shape.line.color = t["ref"]
+    # Make annotation text legible: the muted placeholder stays muted, everything
+    # else (EPE / limit callouts, whose default is dark) follows the theme font.
+    for ann in fig.layout.annotations:
+        ann.font.color = t["muted"] if ann.font.color in _MUTED_COLORS else t["font"]
+    return fig
 
 
 def _base_layout(fig: go.Figure, title: str, ytitle: str = "Exposure") -> go.Figure:
@@ -63,12 +140,52 @@ def _placeholder(message: str) -> go.Figure:
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font=dict(size=14, color="#888"),
+                font=dict(size=14, color=_PLACEHOLDER),
             )
         ],
         xaxis=dict(visible=False),
         yaxis=dict(visible=False),
     )
+    return fig
+
+
+def yield_curves_figure(snapshot: MarketSnapshot | None) -> go.Figure:
+    """Zero (discount) curves by currency: zero rate (%) against tenor."""
+    if snapshot is None or not snapshot.discount_curves:
+        return _placeholder("No yield curves in the market snapshot.")
+    fig = go.Figure()
+    for i, (ccy, curve) in enumerate(snapshot.discount_curves.items()):
+        fig.add_trace(
+            go.Scatter(
+                x=list(curve.tenors),
+                y=[r * 100.0 for r in curve.zero_rates],
+                name=ccy,
+                mode="lines+markers",
+                line=dict(color=_SERIES[i % len(_SERIES)], width=2.5),
+            )
+        )
+    fig = _base_layout(fig, "Zero (discount) curves", ytitle="Zero rate (%)")
+    fig.update_layout(xaxis_title="Tenor (years)")
+    return fig
+
+
+def credit_curves_figure(snapshot: MarketSnapshot | None) -> go.Figure:
+    """CDS credit-spread curves by issuer: spread (bps) against tenor."""
+    if snapshot is None or not snapshot.credit_curves:
+        return _placeholder("No credit-spread curves in the market snapshot.")
+    fig = go.Figure()
+    for i, (issuer, curve) in enumerate(snapshot.credit_curves.items()):
+        fig.add_trace(
+            go.Scatter(
+                x=list(curve.tenors),
+                y=[s * 1e4 for s in curve.spreads],
+                name=issuer,
+                mode="lines+markers",
+                line=dict(color=_SERIES[i % len(_SERIES)], width=2.5),
+            )
+        )
+    fig = _base_layout(fig, "Credit-spread curves", ytitle="Spread (bps)")
+    fig.update_layout(xaxis_title="Tenor (years)")
     return fig
 
 
@@ -232,7 +349,7 @@ def simulator_consequence_figure(
     if limit is not None and not math.isnan(limit):
         fig.add_hline(
             y=limit,
-            line=dict(color="#111", width=2, dash="dash"),
+            line=dict(color=_REF_LINE, width=2, dash="dash"),
             annotation_text=f"Limit {limit:,.0f}",
             annotation_position="top left",
         )
@@ -272,33 +389,34 @@ def limits_figure(limits: LimitCheck | None) -> go.Figure:
         return _placeholder("Run an analysis to see limit utilization.")
     color = _BREACH if limits.breach else _OK
     fig = go.Figure()
+    # A single stacked column (existing + incremental peak PFE) against the limit
+    # line — reads well whether the pane is short or tall.
     fig.add_trace(
         go.Bar(
-            x=[max(limits.current_peak_pfe, 0.0)],
-            y=["Peak PFE"],
-            orientation="h",
-            name="Existing",
+            x=["Peak PFE"],
+            y=[max(limits.current_peak_pfe, 0.0)],
+            name="Existing book",
             marker_color=_UNCOLLAT,
         )
     )
     fig.add_trace(
         go.Bar(
-            x=[max(limits.incremental_peak_pfe, 0.0)],
-            y=["Peak PFE"],
-            orientation="h",
+            x=["Peak PFE"],
+            y=[max(limits.incremental_peak_pfe, 0.0)],
             name="Incremental (proposed)",
             marker_color=color,
         )
     )
     if not math.isnan(limits.limit):
-        fig.add_vline(
-            x=limits.limit,
-            line=dict(color="#111", width=2, dash="dash"),
+        fig.add_hline(
+            y=limits.limit,
+            line=dict(color=_REF_LINE, width=2, dash="dash"),
             annotation_text=f"Limit {limits.limit:,.0f}",
-            annotation_position="top",
+            annotation_position="top left",
         )
     fig.update_layout(
         barmode="stack",
+        bargap=0.55,
         title=dict(
             text=f"Limit utilization {limits.utilization:.0%}"
             + (" — BREACH" if limits.breach else ""),
@@ -309,8 +427,9 @@ def limits_figure(limits: LimitCheck | None) -> go.Figure:
             font=dict(size=15),
         ),
         template="plotly_white",
-        margin=dict(l=90, r=40, t=54, b=80),
-        legend=dict(orientation="h", yanchor="top", y=-0.25, x=0.5, xanchor="center"),
-        xaxis_title="Exposure",
+        margin=dict(l=70, r=40, t=54, b=80),
+        legend=dict(orientation="h", yanchor="top", y=-0.18, x=0.5, xanchor="center"),
+        yaxis_title="Exposure",
+        xaxis_title="",
     )
     return fig

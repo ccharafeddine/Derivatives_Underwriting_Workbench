@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Rates rally and a tech name defaults",
+    "description": "Three rounds. Rates fall, so a receiver swap (you receive fixed) moves into the money and your exposure to Nimbus climbs just as its credit cracks and it defaults. A healthy consumer name, Harborline, is added later and survives. Collateralize the name that fails; leave the survivor open.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Read exposure on a receiver swap as rates fall.",
+      "Collateralize a deteriorating name to zero out the default loss.",
+      "Leave a healthy name open to keep the spread."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "RR-NIMBUS",
+        "name": "Nimbus Software",
+        "sector": "Technology",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 4200,
+          "total_liabilities": 2900,
+          "current_assets": 2100.0,
+          "current_liabilities": 1305.0,
+          "retained_earnings": 1176.0,
+          "ebit": 672.0,
+          "sales": 3150.0,
+          "market_equity": 1500,
+          "equity_volatility": 0.44,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "RR-HARBOR",
+        "name": "Harborline Foods",
+        "sector": "Consumer",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 9600,
+          "total_liabilities": 4100,
+          "current_assets": 4800.0,
+          "current_liabilities": 1845.0,
+          "retained_earnings": 2688.0000000000005,
+          "ebit": 1536.0,
+          "sales": 7200.0,
+          "market_equity": 8200,
+          "equity_volatility": 0.23,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates -100bp",
+        "rate_shift_bps": -100.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates -250bp",
+        "rate_shift_bps": -250.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "RR1-NIMBUS-IRS",
+        "counterparty_id": "RR-NIMBUS",
+        "notional": 18000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "receive_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Nimbus Software deteriorates and defaults in this scenario. Your exposure on this IRS grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 2000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "RR2-HARBOR-IRS",
+        "counterparty_id": "RR-HARBOR",
+        "notional": 12000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "receive_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Harborline Foods stays healthy and never defaults here. Charge the CVA and approve this IRS open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 2000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "RR-NIMBUS",
+      "coaching": "Nimbus Software has defaulted. If you required collateral, the exposure was covered and your realized loss is zero. If you approved it open, this is the closeout loss a CSA would have prevented. Same trade, opposite outcome: the collateral terms decide the consequence."
+    }
+  ]
+}

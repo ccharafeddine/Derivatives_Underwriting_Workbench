@@ -25,6 +25,7 @@ the correct preview without a stepping API on the (untouched) engine.
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
@@ -43,8 +44,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from duw.scenario import coaching
 from duw.scenario.engine import ScenarioEngine
-from duw.scenario.io import load_bundled_scenario, load_scenario
+from duw.scenario.io import (
+    list_bundled_scenarios,
+    list_playable_scenarios,
+    load_bundled_scenario,
+    load_scenario,
+)
 from duw.scenario.model import (
     DealArrival,
     Decision,
@@ -55,12 +62,14 @@ from duw.scenario.model import (
     ScenarioResult,
 )
 from duw.scenario.scoring import Scorer, ScoreResult, score_scenario
+from duw.ui.help import control_help
 from duw.ui.simulator_run import ScenarioRunWorker, create_scenario_thread
 from duw.ui.widgets.charts import simulator_consequence_figure
 from duw.ui.widgets.plotly_view import PlotlyView
 from duw.ui.widgets.result_table import MetricsTable
 
 DEFAULT_SCENARIO = "rising_rates_default"
+TUTORIAL_SCENARIO = "tutorial_intro"
 
 _ACTION_LABELS: tuple[tuple[str, DecisionAction], ...] = (
     ("Approve", DecisionAction.APPROVE),
@@ -92,14 +101,28 @@ class SimulatorTab(QWidget):
     #: "failed"). Lets tests wait for the flow to settle.
     runFinished = Signal(str)
 
+    #: Emitted when the best-play benchmark run finishes (guided mode only).
+    benchmarkReady = Signal()
+
     def __init__(self) -> None:
         super().__init__()
         self._scenario: Scenario | None = None
+        self._rng = random.Random()
         self._steps: tuple[PlayStep, ...] = ()
         self._step_index = 0
         self._committed: dict[str, Decision] = {}
         self._last_result: ScenarioResult | None = None
         self.score_result: ScoreResult | None = None
+
+        # Guided-mode (tutorial) state.
+        self._coached = False
+        self._benchmark_result: ScenarioResult | None = None
+        self._benchmark_score: ScoreResult | None = None
+        self._bench_thread = None
+        self._bench_worker: ScenarioRunWorker | None = None
+        # Bumped on each load so a stale benchmark from a prior scenario is
+        # ignored when it lands.
+        self._bench_gen = 0
 
         # Background run state.
         self._thread = None
@@ -118,6 +141,12 @@ class SimulatorTab(QWidget):
         self.framing.setWordWrap(True)
         self.framing.setTextFormat(Qt.TextFormat.RichText)
         outer.addWidget(self.framing)
+
+        self.tutorial_check = QCheckBox(
+            "Guided (tutorial) mode: explain each step and score me against best play"
+        )
+        self.tutorial_check.toggled.connect(self._on_tutorial_toggled)
+        outer.addWidget(self.tutorial_check)
 
         splitter = QSplitter()
         self.stack = QStackedWidget()
@@ -143,9 +172,31 @@ class SimulatorTab(QWidget):
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
-        self.load_sample_btn = QPushButton("Load sample scenario")
-        self.load_sample_btn.clicked.connect(self.load_default)
-        layout.addWidget(self.load_sample_btn)
+        self.load_tutorial_btn = QPushButton(
+            "Start guided tutorial (new to this? start here)"
+        )
+        self.load_tutorial_btn.clicked.connect(self.load_tutorial)
+        layout.addWidget(self.load_tutorial_btn)
+
+        # Picker over the bundled scenarios (the defaulting sample, the no-default
+        # steady book, and the tutorial), so more than one is reachable.
+        picker_row = QHBoxLayout()
+        self.scenario_combo = QComboBox()
+        for name, title in list_bundled_scenarios():
+            self.scenario_combo.addItem(title, name)
+        default_idx = self.scenario_combo.findData(DEFAULT_SCENARIO)
+        if default_idx >= 0:
+            self.scenario_combo.setCurrentIndex(default_idx)
+        picker_row.addWidget(self.scenario_combo, 1)
+        self.load_selected_btn = QPushButton("Load selected scenario")
+        self.load_selected_btn.clicked.connect(self._on_load_selected)
+        picker_row.addWidget(self.load_selected_btn)
+        layout.addLayout(picker_row)
+
+        self.load_random_btn = QPushButton("Play a random scenario (surprise me)")
+        self.load_random_btn.clicked.connect(self.load_random)
+        layout.addWidget(self.load_random_btn)
+
         self.load_file_btn = QPushButton("Load scenario from file…")
         self.load_file_btn.clicked.connect(self._on_load_file)
         layout.addWidget(self.load_file_btn)
@@ -157,6 +208,25 @@ class SimulatorTab(QWidget):
 
         controls = QWidget()
         cbox = QVBoxLayout(controls)
+
+        # Coach panel — only shown in guided (tutorial) mode.
+        self.coach_group = QGroupBox("Coach")
+        coach_layout = QVBoxLayout(self.coach_group)
+        self.coach_text = QLabel("")
+        self.coach_text.setWordWrap(True)
+        coach_layout.addWidget(self.coach_text)
+        self.coach_reco = QLabel("")
+        self.coach_reco.setWordWrap(True)
+        self.coach_reco.setTextFormat(Qt.TextFormat.RichText)
+        coach_layout.addWidget(self.coach_reco)
+        self.apply_reco_btn = QPushButton("Apply recommended")
+        self.apply_reco_btn.clicked.connect(self._apply_recommended)
+        coach_layout.addWidget(self.apply_reco_btn)
+        self.on_track_label = QLabel("")
+        self.on_track_label.setWordWrap(True)
+        coach_layout.addWidget(self.on_track_label)
+        self.coach_group.setVisible(False)
+        cbox.addWidget(self.coach_group)
 
         deal_group = QGroupBox("Deal on the table")
         deal_layout = QVBoxLayout(deal_group)
@@ -180,6 +250,12 @@ class SimulatorTab(QWidget):
         self.mta_spin = self._money_spin(0.0)
         self.im_spin = self._money_spin(0.0)
         self.limit_spin = self._money_spin(5_000_000.0)
+        self.action_combo.setToolTip(control_help("sim_action"))
+        self.collateral_check.setToolTip(control_help("sim_collateral"))
+        self.threshold_spin.setToolTip(control_help("csa_threshold"))
+        self.mta_spin.setToolTip(control_help("csa_mta"))
+        self.im_spin.setToolTip(control_help("csa_im"))
+        self.limit_spin.setToolTip(control_help("sim_limit"))
         form.addRow("CSA threshold", self.threshold_spin)
         form.addRow("Minimum transfer amount", self.mta_spin)
         form.addRow("Initial margin", self.im_spin)
@@ -240,6 +316,19 @@ class SimulatorTab(QWidget):
         self.default_tieback.setWordWrap(True)
         self.default_tieback.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.default_tieback)
+        # Always-visible reframing: the default is scripted, so success is about
+        # protection, not prevention. Shown in every mode.
+        self.default_framing = QLabel("")
+        self.default_framing.setWordWrap(True)
+        self.default_framing.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.default_framing.setStyleSheet("font-size: 13px; padding: 6px;")
+        layout.addWidget(self.default_framing)
+        self.default_coach = QLabel("")
+        self.default_coach.setWordWrap(True)
+        self.default_coach.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.default_coach.setStyleSheet("padding: 8px;")
+        self.default_coach.setVisible(False)
+        layout.addWidget(self.default_coach)
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
         self.continue_btn = QPushButton("Continue")
@@ -254,6 +343,33 @@ class SimulatorTab(QWidget):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel("<b>Scenario complete</b>"))
+
+        # Verdict box — only populated in guided mode, once the benchmark lands.
+        self.verdict_group = QGroupBox("How you did")
+        verdict_layout = QVBoxLayout(self.verdict_group)
+        self.verdict_headline = QLabel("")
+        self.verdict_headline.setWordWrap(True)
+        self.verdict_headline.setTextFormat(Qt.TextFormat.RichText)
+        verdict_layout.addWidget(self.verdict_headline)
+        success_meaning = QLabel(
+            "A successful underwrite is measured by your realized loss and "
+            "risk-adjusted return, not by whether a counterparty defaulted. "
+            "Defaults here are scripted and will happen; the job is to be "
+            "protected and still get paid."
+        )
+        success_meaning.setWordWrap(True)
+        success_meaning.setStyleSheet("font-size: 12px;")
+        verdict_layout.addWidget(success_meaning)
+        self.verdict_notes = QLabel("")
+        self.verdict_notes.setWordWrap(True)
+        self.verdict_notes.setTextFormat(Qt.TextFormat.RichText)
+        verdict_layout.addWidget(self.verdict_notes)
+        self.outro_label = QLabel("")
+        self.outro_label.setWordWrap(True)
+        verdict_layout.addWidget(self.outro_label)
+        self.verdict_group.setVisible(False)
+        layout.addWidget(self.verdict_group)
+
         layout.addWidget(QLabel("Final score breakdown:"))
         self.summary_table = MetricsTable()
         layout.addWidget(self.summary_table)
@@ -261,6 +377,20 @@ class SimulatorTab(QWidget):
         self.history_table = MetricsTable()
         self.history_table.setHorizontalHeaderLabels(["Round", "Net P&L"])
         layout.addWidget(self.history_table)
+
+        # Replay controls, so a finished run can be reset and played again.
+        replay_row = QHBoxLayout()
+        self.replay_btn = QPushButton("Play this scenario again")
+        self.replay_btn.clicked.connect(self.restart_scenario)
+        replay_row.addWidget(self.replay_btn)
+        self.random_again_btn = QPushButton("Play a random scenario")
+        self.random_again_btn.clicked.connect(self.load_random)
+        replay_row.addWidget(self.random_again_btn)
+        self.choose_btn = QPushButton("Choose another scenario")
+        self.choose_btn.clicked.connect(self._show_prompt)
+        replay_row.addWidget(self.choose_btn)
+        layout.addLayout(replay_row)
+
         layout.addStretch(1)
         return page
 
@@ -293,9 +423,31 @@ class SimulatorTab(QWidget):
         """Load the bundled sample scenario."""
         self.load_scenario_object(load_bundled_scenario(DEFAULT_SCENARIO))
 
+    def load_tutorial(self) -> None:
+        """Load the bundled guided tutorial scenario in coached mode."""
+        self._set_coached(True)
+        self.load_scenario_object(load_bundled_scenario(TUTORIAL_SCENARIO))
+
     def load_from_path(self, path: str) -> None:
         """Load a scenario from a JSON file path."""
         self.load_scenario_object(load_scenario(path))
+
+    def _on_load_selected(self) -> None:
+        name = self.scenario_combo.currentData()
+        if name:
+            self.load_scenario_object(load_bundled_scenario(name))
+
+    def load_random(self) -> None:
+        """Load a randomly chosen playable (non-tutorial) scenario."""
+        names = [name for name, _title in list_playable_scenarios()]
+        if not names:
+            return
+        self.load_scenario_object(load_bundled_scenario(self._rng.choice(names)))
+
+    def restart_scenario(self) -> None:
+        """Reset the current scenario to round one so it can be replayed."""
+        if self._scenario is not None:
+            self.load_scenario_object(self._scenario)
 
     def load_scenario_object(self, scenario: Scenario) -> None:
         """Load a :class:`Scenario` and start play at its first step."""
@@ -303,11 +455,55 @@ class SimulatorTab(QWidget):
         self._committed = {}
         self._last_result = None
         self.score_result = None
+        # A scenario flagged as a tutorial turns guided mode on automatically.
+        if scenario.meta.tutorial:
+            self._set_coached(True)
+        # Reset any benchmark from a prior scenario; a stale in-flight run is
+        # discarded by the generation token when it lands.
+        self._bench_gen += 1
+        self._benchmark_result = None
+        self._benchmark_score = None
         self._steps = self._build_steps(scenario)
         self._step_index = 0
+        self._update_coach_visibility()
+        if self._coached and coaching.has_benchmark(scenario):
+            self._start_benchmark()
         self._render_framing()
         self._update_scoreboard()
         self._render_step()
+
+    def _set_coached(self, enabled: bool) -> None:
+        """Set guided mode and sync the checkbox without re-triggering it."""
+        self._coached = enabled
+        self.tutorial_check.blockSignals(True)
+        self.tutorial_check.setChecked(enabled)
+        self.tutorial_check.blockSignals(False)
+        self._update_coach_visibility()
+
+    def _on_tutorial_toggled(self, checked: bool) -> None:
+        self._coached = checked
+        self._update_coach_visibility()
+        if (
+            checked
+            and self._scenario is not None
+            and self._benchmark_result is None
+            and coaching.has_benchmark(self._scenario)
+        ):
+            self._start_benchmark()
+        self._render_framing()
+        # Refresh only the coach content in place — a full re-render would restart
+        # the preview run, so toggling never spawns background work here.
+        step = self._current_step()
+        if step is not None and step.kind == "decision" and checked:
+            self._update_coach_panel(step)
+        elif step is not None and step.kind == "end":
+            self._render_summary_verdict()
+        self._update_enabled()
+
+    def _update_coach_visibility(self) -> None:
+        self.coach_group.setVisible(self._coached)
+        self.default_coach.setVisible(self._coached)
+        self.verdict_group.setVisible(self._coached)
 
     def _on_load_file(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -364,6 +560,8 @@ class SimulatorTab(QWidget):
         self.consequence_table.set_metrics([("Status", "Previewing…")])
         self.recommendation_label.setText("")
         self.decision_status.setText("")
+        if self._coached:
+            self._update_coach_panel(step)
         self._ensure_preview()
         self._update_enabled()
 
@@ -390,6 +588,20 @@ class SimulatorTab(QWidget):
             ]
         )
         self.default_tieback.setText(self._tieback_text(step.default))
+        if outcome.realized_loss <= 0.0:
+            self.default_framing.setText(
+                "This default was always going to happen; it is scripted. What "
+                "matters is whether you were protected. Your realized loss is 0, "
+                "so you were. That is a successful underwrite, not a failure."
+            )
+        else:
+            self.default_framing.setText(
+                "This default was always going to happen; it is scripted. You were "
+                "not protected, so it landed as a real loss. Collateral on this "
+                "name would have prevented it."
+            )
+        if self._coached:
+            self.default_coach.setText(step.default.coaching)
         self._update_scoreboard()
         self._update_enabled()
 
@@ -417,6 +629,9 @@ class SimulatorTab(QWidget):
         for r, rs in enumerate(history):
             self.history_table.setItem(r, 0, QTableWidgetItem(f"Round {rs.round + 1}"))
             self.history_table.setItem(r, 1, QTableWidgetItem(_money(rs.net)))
+        self.history_table.fit_to_contents()
+        if self._coached:
+            self._render_summary_verdict()
         self._update_scoreboard()
         self._update_enabled()
 
@@ -557,6 +772,128 @@ class SimulatorTab(QWidget):
     def _apply_commit(self, result: ScenarioResult) -> None:
         self._last_result = result
         self._advance_step()
+
+    # -- guided-mode benchmark (best play) --------------------------------- #
+    def _start_benchmark(self) -> None:
+        """Run the recommended-decision benchmark off-thread, if not already."""
+        if self._scenario is None or self._bench_thread is not None:
+            return
+        decisions = coaching.recommended_decisions(self._scenario)
+        if not decisions:
+            return
+        gen = self._bench_gen
+        worker = ScenarioRunWorker(self._scenario, decisions)
+        thread = create_scenario_thread(worker)
+        self._bench_worker = worker
+        self._bench_thread = thread
+        worker.finished.connect(
+            lambda result, g=gen: self._on_benchmark_ready(result, g)
+        )
+        thread.finished.connect(self._on_bench_thread_done)
+        thread.start()
+
+    def _on_benchmark_ready(self, result: ScenarioResult, gen: int) -> None:
+        if gen != self._bench_gen:
+            return  # a newer scenario was loaded; discard this stale run
+        self._benchmark_result = result
+        self._benchmark_score = score_scenario(result)
+        self._update_on_track()
+        step = self._current_step()
+        if step is not None and step.kind == "end":
+            self._render_summary_verdict()
+        self.benchmarkReady.emit()
+
+    def _on_bench_thread_done(self) -> None:
+        self._bench_thread = None
+        self._bench_worker = None
+
+    def is_benchmark_ready(self) -> bool:
+        """Whether the best-play benchmark has finished (for tests)."""
+        return self._benchmark_score is not None
+
+    # -- coach panel ------------------------------------------------------- #
+    def _apply_recommended(self) -> None:
+        """Fill the decision controls from the deal's recommended decision."""
+        step = self._current_step()
+        if (
+            not self._coached
+            or step is None
+            or step.kind != "decision"
+            or step.deal is None
+            or step.deal.recommended is None
+        ):
+            return
+        # set_candidate drives the control signals, which request a fresh preview.
+        self.set_candidate(step.deal.recommended)
+
+    def _update_coach_panel(self, step: PlayStep) -> None:
+        deal = step.deal
+        assert deal is not None
+        self.coach_text.setText(deal.coaching or "No coaching notes for this deal.")
+        if deal.recommended is not None:
+            self.coach_reco.setText(self._recommended_summary(deal.recommended))
+        else:
+            self.coach_reco.setText("")
+        self._update_on_track()
+
+    @staticmethod
+    def _recommended_summary(decision: Decision) -> str:
+        action = {
+            DecisionAction.APPROVE: "Approve",
+            DecisionAction.CONDITION: "Condition (collateralize)",
+            DecisionAction.DECLINE: "Decline",
+        }[decision.action]
+        collateral = (
+            "require collateral" if decision.require_collateral else "no collateral"
+        )
+        return (
+            f"Recommended: <b>{action}</b>, {collateral}, limit {decision.limit:,.0f}."
+        )
+
+    def _update_on_track(self) -> None:
+        if not self._coached:
+            self.on_track_label.setText("")
+            return
+        if self._benchmark_score is None:
+            self.on_track_label.setText("Versus best play: computing benchmark…")
+            return
+        step = self._current_step()
+        if step is None:
+            return
+        # Compare only rounds the learner has actually completed, so the gauge is
+        # like-for-like (the current, undecided round is excluded from both).
+        completed = step.round - 1
+        if completed < 0:
+            self.on_track_label.setText(
+                "Versus best play: play your first round to see your pace."
+            )
+            return
+        student_net = coaching.cumulative_net(self._live_score(), completed)
+        bench_net = coaching.cumulative_net(self._benchmark_score, completed)
+        self.on_track_label.setText(
+            f"Versus best play: {coaching.on_track_label(student_net, bench_net)}."
+        )
+
+    def _render_summary_verdict(self) -> None:
+        if not self._coached or self._scenario is None:
+            return
+        self.outro_label.setText(self._scenario.meta.outro)
+        if self._benchmark_result is None or self._benchmark_score is None:
+            self.verdict_headline.setText(
+                "Scoring against best play… (computing the benchmark run)."
+            )
+            self.verdict_notes.setText("")
+            return
+        student_result = self._last_result or ScenarioResult()
+        verdict = coaching.evaluate(
+            self._scenario, student_result, self._benchmark_result
+        )
+        self.verdict_headline.setText(f"<b>{verdict.band}.</b> {verdict.headline}")
+        if verdict.notes:
+            items = "".join(f"<li>{n}</li>" for n in verdict.notes)
+            self.verdict_notes.setText(f"<ul>{items}</ul>")
+        else:
+            self.verdict_notes.setText("You matched the best play round for round.")
 
     # -- scoreboard / book ------------------------------------------------- #
     def _update_scoreboard(self) -> None:
@@ -719,6 +1056,10 @@ class SimulatorTab(QWidget):
         ):
             w.setEnabled(is_decision and not busy)
         self.continue_btn.setEnabled(is_default and not busy)
+        has_reco = (
+            is_decision and step.deal is not None and step.deal.recommended is not None
+        )
+        self.apply_reco_btn.setEnabled(self._coached and has_reco and not busy)
 
     # -- framing ----------------------------------------------------------- #
     def _render_framing(self) -> None:
@@ -730,11 +1071,13 @@ class SimulatorTab(QWidget):
             self._counterparty_name(cp.counterparty_id)
             for cp in self._scenario.counterparties
         )
+        intro = f"<p><i>{meta.intro}</i></p>" if self._coached and meta.intro else ""
         self.framing.setText(
             f"<h3>{meta.title}</h3>"
             f"<p>{meta.description}</p>"
             f"<p><b>{meta.n_rounds} rounds.</b> Counterparties: {names}.</p>"
             + (f"<ul>{objectives}</ul>" if objectives else "")
+            + intro
         )
 
     def _show_prompt(self) -> None:

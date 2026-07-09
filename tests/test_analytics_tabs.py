@@ -75,6 +75,9 @@ def test_exposure_tab_renders(qapp) -> None:
     assert tab.view.figure is not None
     assert tab.view.html  # rendered to HTML
     assert tab.table.rowCount() > 0
+    # Chart fills its pane, and the side panel carries plain-English commentary.
+    assert "height:100%!important" in tab.view.html.replace(" ", "")
+    assert len(tab.commentary.text()) > 20
 
 
 def test_limits_tab_renders_and_banners(qapp) -> None:
@@ -82,6 +85,7 @@ def test_limits_tab_renders_and_banners(qapp) -> None:
     tab.set_results(_canned_results())
     assert tab.view.figure is not None
     assert "Within limit" in tab.banner.text()
+    assert len(tab.commentary.text()) > 20
 
 
 def test_cva_tab_renders(qapp) -> None:
@@ -89,6 +93,7 @@ def test_cva_tab_renders(qapp) -> None:
     tab.set_results(_canned_results())
     assert tab.view.figure is not None
     assert tab.table.rowCount() == 5  # CVA, DVA, BCVA, FVA, LGD
+    assert len(tab.commentary.text()) > 20
 
 
 def test_collateral_tab_recomputes_on_apply(qapp) -> None:
@@ -102,6 +107,7 @@ def test_collateral_tab_recomputes_on_apply(qapp) -> None:
     tab._recompute()
     assert tab.view.figure is not None
     assert tab.table.rowCount() > 0
+    assert len(tab.commentary.text()) > 20  # dynamic "what this means" reading
 
 
 def test_collateral_tab_without_cube_is_static(qapp) -> None:

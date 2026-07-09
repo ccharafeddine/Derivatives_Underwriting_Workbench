@@ -14,7 +14,7 @@ heavy computation happens on the worker thread. Qt lives here.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
@@ -32,6 +32,7 @@ from duw.config import (
     KEY_MC_SEED,
     KEY_MC_STEPS,
     KEY_THEME,
+    KEY_TOOLTIPS,
     KEY_UPDATE_CHECK,
     KEY_WWR,
     AppSettings,
@@ -46,6 +47,7 @@ from duw.risk.scenarios import ScenarioSpec, apply_scenario
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
 from duw.ui.dialogs import SettingsDialog, show_about, show_glossary
+from duw.ui.help import tab_help
 from duw.ui.sensitivities_run import compute_async as compute_sensitivities_async
 from duw.ui.tabs.collateral_tab import CollateralTab
 from duw.ui.tabs.counterparty_tab import CounterpartyTab
@@ -60,6 +62,12 @@ from duw.ui.tabs.sensitivities_tab import SensitivitiesTab
 from duw.ui.tabs.simulator_tab import SimulatorTab
 from duw.ui.tabs.trade_tab import TradeTab
 from duw.ui.theme import THEMES, apply_theme
+from duw.ui.tooltips import (
+    add_help_badges,
+    install_tooltip_gate,
+    mirror_form_label_tooltips,
+    set_help_badges_visible,
+)
 from duw.ui.update_check import check_async
 from duw.updates import UpdateInfo
 
@@ -118,7 +126,21 @@ class MainWindow(QMainWindow):
 
         self._build_tabs()
         self._build_menu_bar()
+        self._build_toolbar()
         self._build_status_bar()
+
+        # Global gate for the learning tooltips, toggled from the Settings menu.
+        app = QApplication.instance()
+        self._tooltip_gate = (
+            install_tooltip_gate(app, self.settings.get_bool(KEY_TOOLTIPS))
+            if app is not None
+            else None
+        )
+        # Also show each control's tooltip when the learner hovers its form label,
+        # and drop a clickable "?" help icon next to each helped field.
+        mirror_form_label_tooltips(self)
+        add_help_badges(self)
+        set_help_badges_visible(self, self.settings.get_bool(KEY_TOOLTIPS))
 
         self.app_state.tradeChanged.connect(self._update_run_enabled)
         self.app_state.counterpartyChanged.connect(self._update_run_enabled)
@@ -144,6 +166,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.memo_tab, "Memo")
         self.tabs.addTab(self.pipeline_tab, "Pipeline")
         self.tabs.addTab(self.simulator_tab, "Simulator")
+        # Learning tooltip on each tab, explaining that step of the workflow.
+        for i in range(self.tabs.count()):
+            self.tabs.setTabToolTip(i, tab_help(self.tabs.tabText(i)))
         self.setCentralWidget(self.tabs)
 
     def _build_menu_bar(self) -> None:
@@ -179,11 +204,18 @@ class MainWindow(QMainWindow):
             self._theme_group.addAction(action)
             theme_menu.addAction(action)
 
-        # Settings menu — preferences.
+        # Settings menu — preferences and the learning-tooltips toggle.
         settings_menu = menu_bar.addMenu("&Settings")
         prefs_action = QAction("&Preferences…", self)
         prefs_action.triggered.connect(self._on_preferences)
         settings_menu.addAction(prefs_action)
+        self.tooltips_action = QAction("Learning &tooltips", self, checkable=True)
+        self.tooltips_action.setChecked(self.settings.get_bool(KEY_TOOLTIPS))
+        self.tooltips_action.setStatusTip(
+            "Show plain-English tooltips explaining each step and control."
+        )
+        self.tooltips_action.toggled.connect(self._set_tooltips_enabled)
+        settings_menu.addAction(self.tooltips_action)
 
         # Help menu — examples, glossary, updates, About / disclaimer.
         help_menu = menu_bar.addMenu("&Help")
@@ -207,6 +239,20 @@ class MainWindow(QMainWindow):
         about_action = QAction("&About", self)
         about_action.triggered.connect(lambda: show_about(self))
         help_menu.addAction(about_action)
+
+    def _build_toolbar(self) -> None:
+        # A always-visible action bar so Run Analysis is reachable from any tab,
+        # not buried in the File menu.
+        toolbar = self.addToolBar("Analysis")
+        toolbar.setObjectName("analysisToolbar")
+        toolbar.setMovable(False)
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.run_action.setToolTip(
+            "Run the full underwriting analysis on the current trade and "
+            "counterparty, and fill in every analytics tab (Ctrl+R)."
+        )
+        toolbar.addAction(self.run_action)
+        toolbar.addAction(self.save_deal_action)
 
     def _build_status_bar(self) -> None:
         self.progress = QProgressBar()
@@ -424,9 +470,23 @@ class MainWindow(QMainWindow):
     def _on_preferences(self) -> None:
         SettingsDialog(self.settings, self).exec()
 
+    def _set_tooltips_enabled(self, enabled: bool) -> None:
+        """Persist and apply the learning-tooltips on/off toggle."""
+        self.settings.set(KEY_TOOLTIPS, enabled)
+        self.settings.sync()
+        if self._tooltip_gate is not None:
+            self._tooltip_gate.set_enabled(enabled)
+        set_help_badges_visible(self, enabled)
+
     def _set_theme(self, theme: str) -> None:
         self.settings.set(KEY_THEME, theme)
         self.settings.sync()
         app = QApplication.instance()
         if app is not None:
             apply_theme(app, theme)
+        # Charts render in their own web views and do not inherit the Qt style
+        # sheet, so re-skin every chart in place to match the new theme.
+        from duw.ui.widgets.plotly_view import PlotlyView
+
+        for view in self.findChildren(PlotlyView):
+            view.set_theme(theme)

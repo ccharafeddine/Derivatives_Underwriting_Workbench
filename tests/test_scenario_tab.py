@@ -115,3 +115,6 @@ def test_stressed_fills_comparison_table(qapp) -> None:
     )
     assert tab.table.item(breach_row, 1).text() == "no"
     assert tab.table.item(breach_row, 2).text() == "yes"
+    # The "what this means" reading summarises the stress and flags the breach.
+    assert "peak PFE" in tab.commentary.text()
+    assert "BREACH" in tab.commentary.text()

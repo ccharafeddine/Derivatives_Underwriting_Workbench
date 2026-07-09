@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -72,11 +72,29 @@ class ScenarioTab(QWidget):
         controls = self._build_controls()
         self.view = PlotlyView()
         self.table = self._build_table()
+        self.commentary = QLabel(
+            "Run a base analysis, then a stressed scenario to see a reading here."
+        )
+        self.commentary.setWordWrap(True)
+        self.commentary.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+
+        right_panel = QWidget()
+        rp = QVBoxLayout(right_panel)
+        rp.setContentsMargins(0, 0, 0, 0)
+        rp.addWidget(QLabel("<b>Base vs stressed</b>"))
+        rp.addWidget(self.table)
+        comm_box = QGroupBox("What this means")
+        comm_layout = QVBoxLayout(comm_box)
+        comm_layout.addWidget(self.commentary)
+        comm_layout.addStretch(1)
+        rp.addWidget(comm_box, 1)
 
         right = QSplitter()
-        right.setOrientation(right.orientation())  # horizontal default
         right.addWidget(self.view)
-        right.addWidget(self.table)
+        right.addWidget(right_panel)
+        right.setStretchFactor(0, 1)
         right.setSizes([760, 380])
 
         splitter = QSplitter()
@@ -140,6 +158,8 @@ class ScenarioTab(QWidget):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for col in (1, 2, 3):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+        # Cap the comparison table so the commentary below it stays visible.
+        table.setMaximumHeight(260)
         return table
 
     # -- inputs ------------------------------------------------------------ #
@@ -186,7 +206,37 @@ class ScenarioTab(QWidget):
             return
         self.view.set_figure(scenario_figure(self._base.exposure, stressed.exposure))
         self._fill_table(self._base, stressed)
+        self.commentary.setText(self._stress_commentary(self._base, stressed))
         self.status.setText("Stressed scenario complete.")
+
+    def _stress_commentary(
+        self, base: AnalysisResults, stressed: AnalysisResults
+    ) -> str:
+        name = self.current_spec().name
+        parts = [f"Under '{name}':"]
+        if base.exposure is not None and stressed.exposure is not None:
+            parts.append(
+                f"peak PFE moves from {_money(base.exposure.peak_pfe)} to "
+                f"{_money(stressed.exposure.peak_pfe)} "
+                f"({_pct_change(base.exposure.peak_pfe, stressed.exposure.peak_pfe)})."
+            )
+        if base.cva is not None and stressed.cva is not None:
+            parts.append(
+                f"CVA moves from {_money(base.cva.cva)} to "
+                f"{_money(stressed.cva.cva)} "
+                f"({_pct_change(base.cva.cva, stressed.cva.cva)})."
+            )
+        if base.limits is not None and stressed.limits is not None:
+            if stressed.limits.breach and not base.limits.breach:
+                parts.append(
+                    "The trade is within limit at base but BREACHES under this "
+                    "stress — a sign the limit has little cushion against a shock."
+                )
+            elif stressed.limits.breach:
+                parts.append("The trade breaches the limit under this stress.")
+            else:
+                parts.append("The trade stays within limit even under this stress.")
+        return " ".join(parts)
 
     def _on_run(self) -> None:
         if self._has_inputs:

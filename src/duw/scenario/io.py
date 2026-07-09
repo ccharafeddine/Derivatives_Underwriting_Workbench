@@ -198,6 +198,28 @@ def _trade_from_dict(d: dict[str, Any]) -> Trade:
     raise ScenarioValidationError(f"unknown or missing trade product: {product!r}")
 
 
+def _deal_from_dict(d: dict[str, Any]) -> DealArrival:
+    """Parse a deal arrival, including optional guided-mode coaching fields.
+
+    A ``recommended`` decision may omit its ``trade_id`` in the file (it is
+    implied by the deal); it is injected here so :func:`decision_from_dict`
+    reconstructs the full :class:`Decision`.
+    """
+    trade = _trade_from_dict(d["trade"])
+    recommended = None
+    rec_raw = d.get("recommended")
+    if rec_raw is not None:
+        rec = dict(rec_raw)
+        rec.setdefault("trade_id", trade.trade_id)
+        recommended = decision_from_dict(rec)
+    return DealArrival(
+        round=int(d["round"]),
+        trade=trade,
+        coaching=d.get("coaching", ""),
+        recommended=recommended,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Counterparty (de)serialization
 # ---------------------------------------------------------------------------
@@ -298,14 +320,22 @@ def _settings_from_dict(d: dict[str, Any] | None) -> SimSettings:
 def scenario_to_dict(scenario: Scenario) -> dict[str, Any]:
     """Serialize a :class:`Scenario` to a JSON-ready dict."""
     m = scenario.meta
+    meta_dict: dict[str, Any] = {
+        "title": m.title,
+        "description": m.description,
+        "n_rounds": m.n_rounds,
+        "learning_objectives": list(m.learning_objectives),
+    }
+    # Guided-mode fields are written only when set, so plain scenarios stay lean.
+    if m.tutorial:
+        meta_dict["tutorial"] = True
+    if m.intro:
+        meta_dict["intro"] = m.intro
+    if m.outro:
+        meta_dict["outro"] = m.outro
     return {
         "schema_version": SCHEMA_VERSION,
-        "meta": {
-            "title": m.title,
-            "description": m.description,
-            "n_rounds": m.n_rounds,
-            "learning_objectives": list(m.learning_objectives),
-        },
+        "meta": meta_dict,
         "settings": _settings_to_dict(scenario.settings),
         "counterparties": [
             {
@@ -326,15 +356,39 @@ def scenario_to_dict(scenario: Scenario) -> dict[str, Any]:
             {"round": mr.round, "spec": _spec_to_dict(mr.spec)}
             for mr in scenario.market_path
         ],
-        "deal_stream": [
-            {"round": d.round, "trade": _trade_to_dict(d.trade)}
-            for d in scenario.deal_stream
-        ],
-        "defaults": [
-            {"round": e.round, "counterparty_id": e.counterparty_id}
-            for e in scenario.defaults
-        ],
+        "deal_stream": [_deal_to_dict(d) for d in scenario.deal_stream],
+        "defaults": [_default_to_dict(e) for e in scenario.defaults],
     }
+
+
+def _recommended_to_dict(decision: Decision) -> dict[str, Any]:
+    """Serialize a deal's recommended decision, dropping the redundant trade id.
+
+    The trade id is implied by the deal the recommendation lives on, so it is
+    injected back on load rather than duplicated in the file.
+    """
+    out = decision_to_dict(decision)
+    out.pop("trade_id", None)
+    return out
+
+
+def _deal_to_dict(deal: DealArrival) -> dict[str, Any]:
+    out: dict[str, Any] = {"round": deal.round, "trade": _trade_to_dict(deal.trade)}
+    if deal.coaching:
+        out["coaching"] = deal.coaching
+    if deal.recommended is not None:
+        out["recommended"] = _recommended_to_dict(deal.recommended)
+    return out
+
+
+def _default_to_dict(event: DefaultEvent) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "round": event.round,
+        "counterparty_id": event.counterparty_id,
+    }
+    if event.coaching:
+        out["coaching"] = event.coaching
+    return out
 
 
 def scenario_from_dict(raw: dict[str, Any]) -> Scenario:
@@ -346,6 +400,9 @@ def scenario_from_dict(raw: dict[str, Any]) -> Scenario:
             description=meta_raw["description"],
             n_rounds=int(meta_raw["n_rounds"]),
             learning_objectives=tuple(meta_raw.get("learning_objectives", ())),
+            tutorial=bool(meta_raw.get("tutorial", False)),
+            intro=meta_raw.get("intro", ""),
+            outro=meta_raw.get("outro", ""),
         )
         counterparties = tuple(
             ScenarioCounterparty(
@@ -366,12 +423,13 @@ def scenario_from_dict(raw: dict[str, Any]) -> Scenario:
             MarketRound(round=int(mr["round"]), spec=_spec_from_dict(mr["spec"]))
             for mr in raw.get("market_path", ())
         )
-        deal_stream = tuple(
-            DealArrival(round=int(d["round"]), trade=_trade_from_dict(d["trade"]))
-            for d in raw.get("deal_stream", ())
-        )
+        deal_stream = tuple(_deal_from_dict(d) for d in raw.get("deal_stream", ()))
         defaults = tuple(
-            DefaultEvent(round=int(e["round"]), counterparty_id=e["counterparty_id"])
+            DefaultEvent(
+                round=int(e["round"]),
+                counterparty_id=e["counterparty_id"],
+                coaching=e.get("coaching", ""),
+            )
             for e in raw.get("defaults", ())
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -489,6 +547,48 @@ def load_bundled_scenario(name: str) -> Scenario:
             return load_scenario(path)
     except FileNotFoundError as exc:  # pragma: no cover - defensive
         raise ScenarioError(f"no bundled scenario named {name!r}") from exc
+
+
+def _bundled_scenario_metas() -> list[tuple[str, ScenarioMeta]]:
+    """Return ``(name, meta)`` for every bundled scenario that parses.
+
+    Files that fail to parse are skipped rather than breaking the listing, so a
+    single malformed bundle never hides the rest.
+    """
+    scenarios_dir = resources.files("duw.data").joinpath(SCENARIOS_DIR)
+    out: list[tuple[str, ScenarioMeta]] = []
+    for entry in scenarios_dir.iterdir():
+        if not entry.name.endswith(".json"):
+            continue
+        name = entry.name[: -len(".json")]
+        try:
+            out.append((name, load_bundled_scenario(name).meta))
+        except ScenarioError:  # pragma: no cover - defensive against a bad bundle
+            continue
+    return out
+
+
+def list_bundled_scenarios() -> list[tuple[str, str]]:
+    """Return ``(name, title)`` for each bundled scenario, sorted by title.
+
+    ``name`` is the file stem to pass back to :func:`load_bundled_scenario`.
+    """
+    metas = [(name, meta.title) for name, meta in _bundled_scenario_metas()]
+    return sorted(metas, key=lambda pair: pair[1])
+
+
+def list_playable_scenarios() -> list[tuple[str, str]]:
+    """Return ``(name, title)`` for the non-tutorial (freely playable) scenarios.
+
+    Tutorial scenarios are excluded so that, e.g., a "random scenario" affordance
+    never lands on the hand-held walk-through.
+    """
+    metas = [
+        (name, meta.title)
+        for name, meta in _bundled_scenario_metas()
+        if not meta.tutorial
+    ]
+    return sorted(metas, key=lambda pair: pair[1])
 
 
 def decision_to_dict(decision: Decision) -> dict[str, Any]:

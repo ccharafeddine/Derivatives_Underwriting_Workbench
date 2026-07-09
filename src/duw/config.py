@@ -27,6 +27,7 @@ KEY_LGD = "credit/lgd"
 KEY_FUNDING_BPS = "credit/funding_spread_bps"
 KEY_WWR = "credit/wwr_correlation"
 KEY_UPDATE_CHECK = "updates/check_on_startup"
+KEY_TOOLTIPS = "ui/learning_tooltips"
 
 DEFAULTS: dict[str, Any] = {
     KEY_THEME: "dark",
@@ -37,6 +38,7 @@ DEFAULTS: dict[str, Any] = {
     KEY_FUNDING_BPS: 0.0,
     KEY_WWR: 0.0,
     KEY_UPDATE_CHECK: False,
+    KEY_TOOLTIPS: True,
 }
 
 

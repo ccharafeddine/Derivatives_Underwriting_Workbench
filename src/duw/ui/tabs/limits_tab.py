@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget
 
 from duw.domain.results import AnalysisResults
+from duw.reports.interpreter import interpret_limits
+from duw.ui.widgets.analytics_panel import side_panel
 from duw.ui.widgets.charts import limits_figure
 from duw.ui.widgets.plotly_view import PlotlyView
 from duw.ui.widgets.result_table import MetricsTable
@@ -21,7 +23,7 @@ def _money(x: float) -> str:
 
 
 class LimitsTab(QWidget):
-    """Limit utilization chart, breach banner, and metrics."""
+    """Limit utilization chart, breach banner, metrics, and commentary."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -30,14 +32,21 @@ class LimitsTab(QWidget):
         self.banner.setWordWrap(True)
         self.view = PlotlyView()
         self.table = MetricsTable()
+        self.commentary = QLabel("Run an analysis to see a plain-English summary here.")
 
         splitter = QSplitter()
         splitter.addWidget(self.view)
-        splitter.addWidget(self.table)
-        splitter.setSizes([820, 300])
+        splitter.addWidget(side_panel(self.table, self.commentary))
+        splitter.setStretchFactor(0, 1)
+        splitter.setSizes([920, 340])
+
+        # Keep the status as a small chip sized to its text, not a full-width bar.
+        banner_row = QHBoxLayout()
+        banner_row.addWidget(self.banner)
+        banner_row.addStretch(1)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(self.banner)
+        layout.addLayout(banner_row)
         layout.addWidget(splitter)
         self._set_banner(None)
         self.view.set_message("Run an analysis to see limit utilization.")
@@ -47,6 +56,7 @@ class LimitsTab(QWidget):
         limits = results.limits
         self.view.set_figure(limits_figure(limits))
         self._set_banner(limits.breach if limits is not None else None)
+        self.commentary.setText(interpret_limits(results))
         if limits is None:
             self.table.set_metrics([])
             return
@@ -62,17 +72,23 @@ class LimitsTab(QWidget):
         )
 
     def _set_banner(self, breach: bool | None) -> None:
+        # Semi-transparent tints so the chip reads on both the light and dark
+        # themes rather than sitting as a bright block on a dark ground.
         if breach is None:
             self.banner.setText("")
             self.banner.setStyleSheet("")
             return
         if breach:
-            self.banner.setText("LIMIT BREACH — proposed trade exceeds the limit.")
+            self.banner.setText("⚠  LIMIT BREACH — proposed trade exceeds the limit")
             self.banner.setStyleSheet(
-                "background:#fdecea;color:#b71c1c;padding:8px;font-weight:bold;"
+                "color:#e5534b; background:rgba(214,39,40,0.15);"
+                "border:1px solid #d62728; border-radius:4px;"
+                "padding:4px 12px; font-weight:bold;"
             )
         else:
-            self.banner.setText("Within limit.")
+            self.banner.setText("✓  Within limit")
             self.banner.setStyleSheet(
-                "background:#eaf5ea;color:#1b5e20;padding:8px;font-weight:bold;"
+                "color:#2ea043; background:rgba(46,160,67,0.15);"
+                "border:1px solid #2ca02c; border-radius:4px;"
+                "padding:4px 12px; font-weight:bold;"
             )

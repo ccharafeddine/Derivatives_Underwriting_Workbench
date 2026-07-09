@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Rate-vol desk: swaptions, no default",
+    "description": "Three rounds. You buy payer swaptions from two well-capitalized dealers as rate volatility rises. Neither dealer defaults. With healthy counterparties, take the options open and earn the spread rather than tying up collateral against a default that will not come.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "See counterparty exposure on a bought swaption.",
+      "Keep strong dealers open when nobody is going to default.",
+      "Avoid conceding spread through needless collateral."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "SW-ORION",
+        "name": "Orion Markets",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 22000,
+          "total_liabilities": 12000,
+          "current_assets": 11000.0,
+          "current_liabilities": 5400.0,
+          "retained_earnings": 6160.000000000001,
+          "ebit": 3520.0,
+          "sales": 16500.0,
+          "market_equity": 14000,
+          "equity_volatility": 0.2,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "SW-VEGA",
+        "name": "Vega Capital",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 18000,
+          "total_liabilities": 9500,
+          "current_assets": 9000.0,
+          "current_liabilities": 4275.0,
+          "retained_earnings": 5040.000000000001,
+          "ebit": 2880.0,
+          "sales": 13500.0,
+          "market_equity": 11500,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +120bp",
+        "rate_shift_bps": 120.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +220bp",
+        "rate_shift_bps": 220.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "Swaption",
+        "trade_id": "SW1-ORION-SWPT",
+        "counterparty_id": "SW-ORION",
+        "notional": 20000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "strike": 0.043,
+        "direction": "payer",
+        "underlying_tenor_years": 5.0,
+        "volatility": 0.22,
+        "underlying_frequency": "annual",
+        "bought": true
+      },
+      "coaching": "Orion Markets stays healthy and never defaults here. Charge the CVA and approve this Swaption open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 3500000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "Swaption",
+        "trade_id": "SW2-VEGA-SWPT",
+        "counterparty_id": "SW-VEGA",
+        "notional": 16000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "strike": 0.043,
+        "direction": "payer",
+        "underlying_tenor_years": 5.0,
+        "volatility": 0.22,
+        "underlying_frequency": "annual",
+        "bought": true
+      },
+      "coaching": "Vega Capital stays healthy and never defaults here. Charge the CVA and approve this Swaption open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 4000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

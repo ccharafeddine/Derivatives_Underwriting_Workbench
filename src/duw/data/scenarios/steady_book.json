@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Steady book: nobody defaults",
+    "description": "Three rounds, two healthy names, and no defaults at all. Rates rise so your payer swaps build real exposure, but neither counterparty ever fails. With no default to protect against, the winning move is to take the business and leave it open: demanding collateral here only concedes spread, and declining forgoes revenue. This scenario teaches the opposite lesson to the defaulting ones: over-caution is also a way to lose.",
+    "n_rounds": 3,
+    "tutorial": false,
+    "intro": "This book has no defaults. Every counterparty here is healthy and stays that way. That does not make the job trivial: the skill now is to not over-pay for protection you do not need. Charge the CVA, take the deals, and leave them open to earn the full spread. Collateralizing a name that never defaults just concedes revenue for nothing; declining a good name forgoes it entirely. Success here is a high risk-adjusted score with no wasted caution.",
+    "outro": "No defaults, no losses, and the winning play was to stay open and get paid. This is the mirror image of the defaulting scenarios: there, collateral saved you; here, unnecessary collateral would have cost you. A good desk is not maximally cautious. It is protected exactly where it needs to be and open everywhere else.",
+    "learning_objectives": [
+      "See that a successful book is measured by risk-adjusted return, not by avoiding all risk.",
+      "Recognize that collateralizing a healthy name concedes spread for protection you do not need.",
+      "Recognize that declining good business is its own way to score poorly.",
+      "Understand that not every scenario ends in a default."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "STB-MERIDIAN",
+        "name": "Meridian Corp",
+        "sector": "Consumer",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 11000.0,
+          "total_liabilities": 5200.0,
+          "current_assets": 5800.0,
+          "current_liabilities": 2100.0,
+          "retained_earnings": 3400.0,
+          "ebit": 1950.0,
+          "sales": 8100.0,
+          "market_equity": 9800.0,
+          "equity_volatility": 0.24,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "STB-COBALT",
+        "name": "Cobalt Industries",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 9200.0,
+          "total_liabilities": 4300.0,
+          "current_assets": 4700.0,
+          "current_liabilities": 1800.0,
+          "retained_earnings": 2900.0,
+          "ebit": 1600.0,
+          "sales": 6800.0,
+          "market_equity": 8100.0,
+          "equity_volatility": 0.26,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +100bp",
+        "rate_shift_bps": 100.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +200bp",
+        "rate_shift_bps": 200.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "S1-MERIDIAN-IRS",
+        "counterparty_id": "STB-MERIDIAN",
+        "notional": 12000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Meridian is a strong A-rated name and it never defaults in this scenario. Read the Peak PFE for size, charge the CVA, and approve it open. Requiring collateral would concede spread to protect against a default that will not come. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "S2-COBALT-IRS",
+        "counterparty_id": "STB-COBALT",
+        "notional": 10000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Cobalt is also healthy and survives. Same call: approve it open and earn the spread. There is no default here to justify tying up collateral. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "S3-MERIDIAN-IRS",
+        "counterparty_id": "STB-MERIDIAN",
+        "notional": 8000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "A follow-on with Meridian, still healthy. Approve it open like the others. Watch that the extra trade does not breach Meridian's limit; if it does, that is a reason to raise the limit or trim size, not to over-collateralize a name that will not default. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

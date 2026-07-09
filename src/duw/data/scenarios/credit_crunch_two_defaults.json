@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Credit crunch: two names go down",
+    "description": "Four rounds. Credit spreads blow out across the board. Two leveraged names, Pallas Materials and Vortex Retail, deteriorate and default; a strong utility, Gridwell Power, rides it out. Protect the two that fail and keep the survivor open.",
+    "n_rounds": 4,
+    "learning_objectives": [
+      "Handle a book where more than one counterparty defaults.",
+      "Collateralize each deteriorating name independently.",
+      "Avoid over-collateralizing the one healthy name."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "CC-PALLAS",
+        "name": "Pallas Materials",
+        "sector": "Materials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 3600,
+          "total_liabilities": 2700,
+          "current_assets": 1800.0,
+          "current_liabilities": 1215.0,
+          "retained_earnings": 1008.0000000000001,
+          "ebit": 576.0,
+          "sales": 2700.0,
+          "market_equity": 1100,
+          "equity_volatility": 0.46,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "CC-VORTEX",
+        "name": "Vortex Retail",
+        "sector": "Consumer",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 3000,
+          "total_liabilities": 2300,
+          "current_assets": 1500.0,
+          "current_liabilities": 1035.0,
+          "retained_earnings": 840.0000000000001,
+          "ebit": 480.0,
+          "sales": 2250.0,
+          "market_equity": 850,
+          "equity_volatility": 0.5,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.3,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "CC-GRID",
+        "name": "Gridwell Power",
+        "sector": "Utilities",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 14000,
+          "total_liabilities": 7000,
+          "current_assets": 7000.0,
+          "current_liabilities": 3150.0,
+          "retained_earnings": 3920.0000000000005,
+          "ebit": 2240.0,
+          "sales": 10500.0,
+          "market_equity": 9500,
+          "equity_volatility": 0.2,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.45,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Spreads +50%",
+        "rate_shift_bps": 80.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 50.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Spreads +120%",
+        "rate_shift_bps": 140.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 120.0
+      }
+    },
+    {
+      "round": 3,
+      "spec": {
+        "name": "Spreads +200%",
+        "rate_shift_bps": 180.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 200.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CC1-PALLAS-IRS",
+        "counterparty_id": "CC-PALLAS",
+        "notional": 15000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Pallas Materials deteriorates and defaults in this scenario. Your exposure on this IRS grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 1500000.0
+      }
+    },
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CC2-GRID-IRS",
+        "counterparty_id": "CC-GRID",
+        "notional": 12000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Gridwell Power stays healthy and never defaults here. Charge the CVA and approve this IRS open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 1500000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CC3-VORTEX-IRS",
+        "counterparty_id": "CC-VORTEX",
+        "notional": 14000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Vortex Retail deteriorates and defaults in this scenario. Your exposure on this IRS grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 2000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "CC-PALLAS",
+      "coaching": "Pallas Materials has defaulted. If you required collateral, the exposure was covered and your realized loss is zero. If you approved it open, this is the closeout loss a CSA would have prevented. Same trade, opposite outcome: the collateral terms decide the consequence."
+    },
+    {
+      "round": 3,
+      "counterparty_id": "CC-VORTEX",
+      "coaching": "Vortex Retail has defaulted. If you required collateral, the exposure was covered and your realized loss is zero. If you approved it open, this is the closeout loss a CSA would have prevented. Same trade, opposite outcome: the collateral terms decide the consequence."
+    }
+  ]
+}

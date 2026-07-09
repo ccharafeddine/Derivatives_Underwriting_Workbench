@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QSpinBox,
     QSplitter,
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
 
 from duw.domain.results import AnalysisResults, CollateralResult
 from duw.risk.collateral import CSA, compute_collateral
+from duw.ui.help import control_help
+from duw.ui.widgets.analytics_panel import side_panel
 from duw.ui.widgets.charts import collateral_figure
 from duw.ui.widgets.plotly_view import PlotlyView
 from duw.ui.widgets.result_table import MetricsTable
@@ -63,10 +66,11 @@ class CollateralTab(QWidget):
         self.fx_haircut.setRange(0.0, 30.0)
         self.fx_haircut.setDecimals(1)
         self.fx_haircut.setSuffix(" %")
-        self.fx_haircut.setToolTip(
-            "Haircut on collateral posted in a different currency "
-            "(0 = same-currency collateral)."
-        )
+        self.threshold.setToolTip(control_help("csa_threshold"))
+        self.mta.setToolTip(control_help("csa_mta"))
+        self.initial_margin.setToolTip(control_help("csa_im"))
+        self.mpor_days.setToolTip(control_help("csa_mpor"))
+        self.fx_haircut.setToolTip(control_help("csa_fx_haircut"))
         self.apply_button = QPushButton("Apply CSA")
         self.apply_button.clicked.connect(self._recompute)
         self.apply_button.setEnabled(False)
@@ -83,17 +87,19 @@ class CollateralTab(QWidget):
 
         self.view = PlotlyView()
         self.table = MetricsTable()
+        self.commentary = QLabel("Run an analysis to see a plain-English summary here.")
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(csa_box)
-        right_layout.addWidget(self.table)
-        right_layout.addStretch(1)
+        right_layout.addWidget(side_panel(self.table, self.commentary), 1)
 
         splitter = QSplitter()
         splitter.addWidget(self.view)
         splitter.addWidget(right)
-        splitter.setSizes([820, 320])
+        splitter.setStretchFactor(0, 1)
+        splitter.setSizes([880, 360])
         layout = QHBoxLayout(self)
         layout.addWidget(splitter)
         self.view.set_message("Run an analysis to see the collateral effect.")
@@ -124,6 +130,9 @@ class CollateralTab(QWidget):
         else:
             self.view.set_message("Run an analysis to see the collateral effect.")
             self.table.set_metrics([])
+            self.commentary.setText(
+                "Run an analysis to see a plain-English summary here."
+            )
 
     def _recompute(self) -> None:
         if self._cube is None or not self._grid:
@@ -161,3 +170,22 @@ class CollateralTab(QWidget):
                 )
             )
         self.table.set_metrics(rows)
+        self.commentary.setText(self._commentary(collateral, reduction))
+
+    @staticmethod
+    def _commentary(collateral: CollateralResult, reduction: float) -> str:
+        if math.isnan(reduction) or reduction <= 0.005:
+            return (
+                "With these CSA terms, collateral has a negligible effect: the "
+                "threshold is high enough that little or nothing is collateralized. "
+                "Lower the threshold to secure more of the exposure."
+            )
+        return (
+            f"Collateral cuts peak exposure by {reduction:.0%}, from "
+            f"{_money(collateral.peak_pfe_uncollateralized)} to "
+            f"{_money(collateral.peak_pfe_collateralized)}. The residual is what "
+            f"can still build during the {collateral.mpor_days}-day margin period "
+            "of risk (the gap before collateral is collected after a default). "
+            "Lower the threshold to collateralize more; a longer MPoR leaves more "
+            "residual exposure."
+        )

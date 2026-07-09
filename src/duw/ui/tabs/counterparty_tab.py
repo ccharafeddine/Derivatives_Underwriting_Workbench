@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 from duw.domain.counterparty import Counterparty, Financials
 from duw.ui.app_state import AppState
 from duw.ui.financials_fetch import fetch_async
+from duw.ui.help import control_help
 
 _CUSTOM = "Custom…"
 _CURRENCIES = ("USD", "EUR")
@@ -111,7 +112,12 @@ class CounterpartyTab(QWidget):
         self.rating.setPlaceholderText("optional seeded rating")
         form.addRow("Internal rating", self.rating)
 
+        self.name.setToolTip(control_help("cp_name"))
+        self.ticker.setToolTip(control_help("cp_ticker"))
+        self.rating.setToolTip(control_help("cp_rating"))
+
         fin_box = QGroupBox("Financials (millions)")
+        fin_box.setToolTip(control_help("cp_financials"))
         fin_form = QFormLayout(fin_box)
         for attr, label, default in _FIN_FIELDS:
             spin = _amount_spin(default)

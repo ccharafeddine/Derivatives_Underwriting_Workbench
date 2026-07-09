@@ -49,6 +49,18 @@ def test_pipeline_tab_groups_deals_by_stage(qapp, tmp_path) -> None:
     assert tab._columns[DealStage.DOCUMENTED.value].count() == 0
 
 
+def test_pipeline_empty_hint_toggles_with_deals(qapp, tmp_path) -> None:
+    store = _store(tmp_path)
+    tab = PipelineTab(store)
+    # Empty board shows the "how to add a deal" hint and an intro.
+    assert tab.intro.text()
+    assert not tab.empty_hint.isHidden()
+    # Saving a deal and refreshing hides the hint.
+    store.save(Deal.from_results("Deal A", _results(), deal_id="d1"))
+    tab.refresh()
+    assert tab.empty_hint.isHidden()
+
+
 def test_pipeline_tab_move_updates_stage(qapp, tmp_path) -> None:
     store = _store(tmp_path)
     store.save(Deal.from_results("Deal A", _results(), deal_id="d1"))

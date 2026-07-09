@@ -106,12 +106,21 @@ class Decision:
 
 @dataclass(frozen=True)
 class ScenarioMeta:
-    """Human-facing description of a scenario."""
+    """Human-facing description of a scenario.
+
+    The ``tutorial`` flag and ``intro`` / ``outro`` narration drive the
+    simulator's guided (coached) mode: when ``tutorial`` is True the UI turns on
+    coaching automatically, opens with ``intro`` and closes with ``outro``. All
+    three are optional so a plain scenario carries none of them.
+    """
 
     title: str
     description: str
     n_rounds: int
     learning_objectives: tuple[str, ...] = ()
+    tutorial: bool = False
+    intro: str = ""
+    outro: str = ""
 
 
 @dataclass(frozen=True)
@@ -166,10 +175,20 @@ class MarketRound:
 
 @dataclass(frozen=True)
 class DealArrival:
-    """A proposed trade arriving in a given round for the learner to assess."""
+    """A proposed trade arriving in a given round for the learner to assess.
+
+    ``coaching`` is optional plain-English guidance shown before the decision in
+    the simulator's guided mode (what to weigh on this deal). ``recommended`` is
+    the model-author's ideal :class:`Decision` for this deal; the guided mode can
+    apply it for the learner to follow along, and the run of all recommended
+    decisions defines the "best play" benchmark the learner is scored against.
+    Both are absent on a plain (non-tutorial) deal.
+    """
 
     round: int
     trade: Trade
+    coaching: str = ""
+    recommended: Decision | None = None
 
     @property
     def trade_id(self) -> str:
@@ -182,10 +201,15 @@ class DealArrival:
 
 @dataclass(frozen=True)
 class DefaultEvent:
-    """A scripted counterparty default firing at the end of a round."""
+    """A scripted counterparty default firing at the end of a round.
+
+    ``coaching`` is optional plain-English guidance shown on the default panel in
+    guided mode, tying the loss (or its absence) back to the earlier decision.
+    """
 
     round: int
     counterparty_id: str
+    coaching: str = ""
 
 
 @dataclass(frozen=True)

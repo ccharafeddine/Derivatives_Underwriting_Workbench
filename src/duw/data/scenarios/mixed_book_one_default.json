@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Mixed book: one of three fails",
+    "description": "Three rounds, three names, one default. Rates grind higher. Two names (Bastion Capital, Verde Agri) stay healthy; a third, Talon Freight, deteriorates and defaults. The skill is discrimination: collateralize only Talon and leave the other two open.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Discriminate name by name across a book.",
+      "Collateralize only the name that actually defaults.",
+      "Keep the survivors open to earn full spread."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "MB-BASTION",
+        "name": "Bastion Capital",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 20000,
+          "total_liabilities": 10000,
+          "current_assets": 10000.0,
+          "current_liabilities": 4500.0,
+          "retained_earnings": 5600.000000000001,
+          "ebit": 3200.0,
+          "sales": 15000.0,
+          "market_equity": 12000,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "MB-VERDE",
+        "name": "Verde Agri",
+        "sector": "Materials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 9400,
+          "total_liabilities": 4200,
+          "current_assets": 4700.0,
+          "current_liabilities": 1890.0,
+          "retained_earnings": 2632.0000000000005,
+          "ebit": 1504.0,
+          "sales": 7050.0,
+          "market_equity": 7600,
+          "equity_volatility": 0.24,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "MB-TALON",
+        "name": "Talon Freight",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 3300,
+          "total_liabilities": 2500,
+          "current_assets": 1650.0,
+          "current_liabilities": 1125.0,
+          "retained_earnings": 924.0000000000001,
+          "ebit": 528.0,
+          "sales": 2475.0,
+          "market_equity": 900,
+          "equity_volatility": 0.47,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +120bp",
+        "rate_shift_bps": 120.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +240bp",
+        "rate_shift_bps": 240.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "MB1-BASTION-IRS",
+        "counterparty_id": "MB-BASTION",
+        "notional": 14000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Bastion Capital stays healthy and never defaults here. Charge the CVA and approve this IRS open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 1500000.0
+      }
+    },
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "MB2-TALON-IRS",
+        "counterparty_id": "MB-TALON",
+        "notional": 12000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Talon Freight deteriorates and defaults in this scenario. Your exposure on this IRS grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 1500000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "MB3-VERDE-IRS",
+        "counterparty_id": "MB-VERDE",
+        "notional": 10000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Verde Agri stays healthy and never defaults here. Charge the CVA and approve this IRS open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 1500000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "MB-TALON",
+      "coaching": "Talon Freight has defaulted. If you required collateral, the exposure was covered and your realized loss is zero. If you approved it open, this is the closeout loss a CSA would have prevented. Same trade, opposite outcome: the collateral terms decide the consequence."
+    }
+  ]
+}
