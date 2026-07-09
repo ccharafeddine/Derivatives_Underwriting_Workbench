@@ -79,10 +79,12 @@ degrading to synthetic data); private names come from the bundled synthetic set.
 *Teaches: the risk drivers — how curves, FX spots, and credit spreads feed
 pricing, so you can change one driver and see exposure and CVA respond.*
 
-Inspect and edit the market the trade is priced against: zero curves by currency,
-FX spots, and CDS spread curves by issuer. Change a rate, spot, or spread and
-Apply, and the next analysis prices against your values — a quick way to test how
-the drivers move exposure and CVA (or reset to the bundled snapshot).
+Inspect and edit the market the trade is priced against: the zero curves by
+currency and the CDS spread curves by issuer are plotted at the top, with the
+editable values (rates, FX spots, spreads) laid out below. Change a rate, spot,
+or spread and Apply, and the next analysis prices against your values — a quick
+way to test how the drivers move exposure and CVA (or reset to the bundled
+snapshot).
 
 ![Market tab](docs/images/market.png)
 
@@ -195,6 +197,25 @@ be reopened.
 
 ![Pipeline board](docs/images/pipeline.png)
 
+### 12. Simulator
+
+*Teaches: the whole job under time — underwriting as a repeated decision whose
+consequences compound as counterparties migrate in credit quality and some
+default.*
+
+Play a scripted scenario round by round: a deal arrives, you size up the
+counterparty, set collateral and a limit, and commit an approve / condition /
+decline decision; then time advances, credit migrates, and some counterparties
+default. You are scored on risk-adjusted P&L, so recklessness and over-caution
+both cost you. A **guided (tutorial) mode** explains every number as you go,
+recommends the best play with the reasoning, and, at the end, grades your run
+against a best-play benchmark with a round-by-round reading of where you gained
+or lost ground. Nine scenarios ship — interest rate swaps, an FX forward, a
+swaption book, and a cross-currency desk; some end in a default, some stay clean
+— selectable from a menu or drawn at random, and each is replayable.
+
+![Simulator tab](docs/images/simulator.png)
+
 ---
 
 ## How it teaches
@@ -206,15 +227,26 @@ The learning scaffolding is a first-class part of the app, not incidental UI:
   loads a complete, runnable scenario so a newcomer can go from launch to a full
   analysis in a single click and start from a worked example rather than a blank
   form.
+- **Role-play simulator with a guided tutorial** (the Simulator tab) — learn the
+  whole workflow by playing it: decide on a deal, live with the consequences as
+  time advances, and, in guided mode, get coached through each step and graded
+  against a best-play benchmark.
 - **Glossary** (**Help → Glossary**) — a plain-English definition of every term
   the app reports (EE, EPE, PFE, CVA/DVA/FVA, DtD, CSA, MPoR, and more).
-- **Metric tooltips** — the same glossary definitions attach to metric labels
-  throughout the UI, so the explanation is one hover away from the number.
+- **Learning tooltips** — a plain-English tooltip on every workflow tab and on
+  each key control, with a **?** help badge beside the field (hover, or click for
+  instant help) and a one-click on/off switch in **Settings → Learning
+  tooltips**. Result-table metrics also carry their glossary definition on hover.
+- **What this means** — the analytics tabs pair each chart with a plain-English
+  reading of the numbers, generated from the actual results.
 - **Scenario sandbox** (the Scenario tab) — a hands-on space to apply market
   shocks and watch exposure, CVA, and limit utilization move against the base
   case, so cause and effect are visible rather than asserted.
-- **Editable market inputs** (the Market tab) — change a curve, spot, or spread
-  and re-run to see how the drivers move the outputs.
+- **Editable market inputs** (the Market tab) — the yield and credit-spread
+  curves are plotted; change a curve, spot, or spread and re-run to see how the
+  drivers move the outputs.
+- **Light and dark themes** (**View → Theme**) — a warm beige light theme and a
+  Bloomberg-terminal dark theme; the charts follow the active theme.
 - **Reproducibility** — every run saves its Monte Carlo seed and full
   configuration, so a scenario reproduces exactly and can be shared or revisited.
 

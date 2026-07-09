@@ -37,6 +37,9 @@ dependencies = [
 dev = [
     "ruff>=0.4",
     "pytest>=8.0",
+    # A per-test timeout so a flaky Qt/QtWebEngine hang on a headless CI runner
+    # fails fast and names the culprit, instead of stalling the whole job.
+    "pytest-timeout>=2.3",
 ]
 # Tooling for building native binaries (see PACKAGING.md). Signing the built
 # artifacts is deferred and documented there.
@@ -75,5 +78,10 @@ indent-style = "space"
 minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-q"
+# A hung Qt/WebEngine test on a headless runner should fail fast (with a stack
+# dump) rather than stall the whole job to the CI timeout. Comfortably above the
+# slowest legitimate test.
+timeout = 180
+timeout_method = "thread"
 # Qt tests must run headlessly; set QT_QPA_PLATFORM=offscreen in the environment
 # when invoking pytest (see README getting-started).

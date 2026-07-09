@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 from duw.domain.results import AnalysisResults
 from duw.reports.interpreter import interpret_limits
@@ -30,6 +37,8 @@ class LimitsTab(QWidget):
         self.banner = QLabel()
         self.banner.setObjectName("limit_banner")
         self.banner.setWordWrap(True)
+        # Keep the chip one line tall; the chart/panel take the vertical space.
+        self.banner.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self.view = PlotlyView()
         self.table = MetricsTable()
         self.commentary = QLabel("Run an analysis to see a plain-English summary here.")
@@ -47,7 +56,7 @@ class LimitsTab(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addLayout(banner_row)
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # chart/panel take the height, not the chip
         self._set_banner(None)
         self.view.set_message("Run an analysis to see limit utilization.")
 
