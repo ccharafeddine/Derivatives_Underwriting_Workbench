@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Cross-currency funding desk, no default",
+    "description": "Three rounds. You run cross-currency swaps with two well-capitalized banks, Zephyr Bank and Lumen Trust, as rates and FX move. Neither defaults. With strong counterparties, take the swaps open and earn the spread rather than tying up collateral against a default that will not come.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Read counterparty exposure on a cross-currency swap.",
+      "Keep strong bank counterparties open when nobody defaults.",
+      "Avoid conceding spread through needless collateral."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "XC-ZEPHYR",
+        "name": "Zephyr Bank",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 28000,
+          "total_liabilities": 15000,
+          "current_assets": 14000.0,
+          "current_liabilities": 6750.0,
+          "retained_earnings": 7840.000000000001,
+          "ebit": 4480.0,
+          "sales": 21000.0,
+          "market_equity": 15000,
+          "equity_volatility": 0.21,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.45,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "XC-LUMEN",
+        "name": "Lumen Trust",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 30000,
+          "total_liabilities": 16000,
+          "current_assets": 15000.0,
+          "current_liabilities": 7200.0,
+          "retained_earnings": 8400.0,
+          "ebit": 4800.0,
+          "sales": 22500.0,
+          "market_equity": 16000,
+          "equity_volatility": 0.2,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.45,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +100 / USD +6%",
+        "rate_shift_bps": 100.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 6.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +200 / USD +12%",
+        "rate_shift_bps": 200.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 12.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "CrossCurrencySwap",
+        "trade_id": "XC1-ZEPHYR-XCCY",
+        "counterparty_id": "XC-ZEPHYR",
+        "notional": 20000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "foreign_currency": "EUR",
+        "foreign_notional": 18518518.51851852,
+        "base_rate": 0.043,
+        "foreign_rate": 0.031,
+        "direction": "receive_base",
+        "frequency": "annual",
+        "exchange_notional": true
+      },
+      "coaching": "Zephyr Bank stays healthy and never defaults here. Charge the CVA and approve this CrossCurrencySwap open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 6500000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "CrossCurrencySwap",
+        "trade_id": "XC2-LUMEN-XCCY",
+        "counterparty_id": "XC-LUMEN",
+        "notional": 16000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "foreign_currency": "EUR",
+        "foreign_notional": 14814814.814814813,
+        "base_rate": 0.043,
+        "foreign_rate": 0.031,
+        "direction": "receive_base",
+        "frequency": "annual",
+        "exchange_notional": true
+      },
+      "coaching": "Lumen Trust stays healthy and never defaults here. Charge the CVA and approve this CrossCurrencySwap open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 4000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

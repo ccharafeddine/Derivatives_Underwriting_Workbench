@@ -37,12 +37,19 @@ from duw.config import (
     KEY_MC_PATHS,
     KEY_MC_SEED,
     KEY_MC_STEPS,
+    KEY_TOOLTIPS,
     KEY_UPDATE_CHECK,
     KEY_WWR,
     AppSettings,
 )
 from duw.glossary import GLOSSARY
 from duw.reports.interpreter import DISCLAIMER
+from duw.ui.help import control_help
+from duw.ui.tooltips import (
+    add_help_badges,
+    mirror_form_label_tooltips,
+    set_help_badges_visible,
+)
 from duw.ui.update_check import check_async
 from duw.updates import UpdateInfo
 
@@ -93,6 +100,13 @@ class SettingsDialog(QDialog):
         )
         self.wwr.setValue(settings.get_float(KEY_WWR))
 
+        self.paths.setToolTip(control_help("mc_paths"))
+        self.steps.setToolTip(control_help("mc_steps"))
+        self.seed.setToolTip(control_help("mc_seed"))
+        self.lgd.setToolTip(control_help("lgd"))
+        self.funding.setToolTip(control_help("funding_bps"))
+        self.wwr.setToolTip(control_help("wwr"))
+
         form = QFormLayout()
         form.addRow("Monte Carlo paths", self.paths)
         form.addRow("Time-grid steps", self.steps)
@@ -112,6 +126,12 @@ class SettingsDialog(QDialog):
         layout.addLayout(form)
         layout.addWidget(self._build_updates_box())
         layout.addWidget(buttons)
+
+        # Let the field tooltips also show when hovering their labels, and add a
+        # "?" help icon next to each, in step with the app-wide tooltips toggle.
+        mirror_form_label_tooltips(self)
+        add_help_badges(self)
+        set_help_badges_visible(self, settings.get_bool(KEY_TOOLTIPS))
 
     def _build_updates_box(self) -> QGroupBox:
         box = QGroupBox("Updates")

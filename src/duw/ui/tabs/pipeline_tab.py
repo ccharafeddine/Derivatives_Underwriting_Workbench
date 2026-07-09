@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -33,6 +34,23 @@ class PipelineTab(QWidget):
         super().__init__()
         self.store = store
         self._columns: dict[str, QListWidget] = {}
+
+        self.intro = QLabel(
+            "<b>Deal pipeline.</b> Deals you save land here as a board, one column "
+            "per approval stage. To add one: run an analysis (Run Analysis), then "
+            "save it with <b>File → Save Deal</b> (Ctrl+S). Select a deal to move it "
+            "between stages, <b>Reopen</b> it to reload its saved analysis into the "
+            "other tabs, or delete it."
+        )
+        self.intro.setWordWrap(True)
+
+        self.empty_hint = QLabel(
+            "No saved deals yet — run an analysis and choose File → Save Deal to add "
+            "your first one."
+        )
+        self.empty_hint.setWordWrap(True)
+        self.empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_hint.setStyleSheet("padding:24px; font-size:14px;")
 
         board = QHBoxLayout()
         for stage in STAGES:
@@ -68,6 +86,8 @@ class PipelineTab(QWidget):
         controls.addWidget(self.refresh_btn)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self.intro)
+        layout.addWidget(self.empty_hint)
         layout.addLayout(controls)
         layout.addLayout(board)
 
@@ -78,13 +98,16 @@ class PipelineTab(QWidget):
         """Reload deals from the store into their stage columns."""
         for listw in self._columns.values():
             listw.clear()
-        for deal in self.store.list():
+        deals = self.store.list()
+        for deal in deals:
             listw = self._columns.get(deal.stage.value)
             if listw is None:
                 continue
             item = QListWidgetItem(self._label(deal))
             item.setData(_DEAL_ID_ROLE, deal.deal_id)
             listw.addItem(item)
+        # Show the "how to add a deal" hint only while the board is empty.
+        self.empty_hint.setVisible(not deals)
         self._update_buttons()
 
     @staticmethod

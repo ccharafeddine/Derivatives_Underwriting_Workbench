@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
 
 from duw.domain.market import CreditCurve, MarketSnapshot, YieldCurve
 from duw.ui.app_state import AppState
+from duw.ui.widgets.charts import credit_curves_figure, yield_curves_figure
+from duw.ui.widgets.plotly_view import PlotlyView
 
 _ROW_H = 26
 
@@ -88,9 +91,24 @@ class MarketTab(QWidget):
         controls.addWidget(self.status)
         controls.addStretch(1)
 
+        # Plotted curves on top, the editable number tables below. The two views
+        # are created once and only their figures are refreshed on rebuild.
+        self.yield_view = PlotlyView()
+        self.credit_view = PlotlyView()
+        charts_widget = QWidget()
+        charts_row = QHBoxLayout(charts_widget)
+        charts_row.setContentsMargins(0, 0, 0, 0)
+        charts_row.addWidget(self.yield_view)
+        charts_row.addWidget(self.credit_view)
+
+        split = QSplitter(Qt.Orientation.Vertical)
+        split.addWidget(charts_widget)
+        split.addWidget(scroll)
+        split.setSizes([300, 320])
+
         layout = QVBoxLayout(self)
         layout.addLayout(controls)
-        layout.addWidget(scroll)
+        layout.addWidget(split)
 
         self._app_state.snapshotChanged.connect(self._rebuild)
         self._rebuild()
@@ -106,7 +124,14 @@ class MarketTab(QWidget):
         self._credit_tables.clear()
         snap = self._app_state.snapshot
 
-        self._body.addWidget(QLabel("<b>Zero curves</b> (rate in %)"))
+        # Two columns side by side — rates + FX on the left, credit on the right —
+        # so the editable tables fit on screen without a long vertical scroll.
+        columns = QWidget()
+        cols = QHBoxLayout(columns)
+        cols.setContentsMargins(0, 0, 0, 0)
+
+        left = QVBoxLayout()
+        left.addWidget(QLabel("<b>Zero curves</b> (rate in %)"))
         for ccy, curve in snap.discount_curves.items():
             box = QGroupBox(f"{ccy} curve")
             v = QVBoxLayout(box)
@@ -119,15 +144,16 @@ class MarketTab(QWidget):
             )
             self._rate_tables[ccy] = table
             v.addWidget(table)
-            self._body.addWidget(box)
-
-        self._body.addWidget(QLabel("<b>FX spot</b>"))
+            left.addWidget(box)
+        left.addWidget(QLabel("<b>FX spot</b>"))
         self._fx_table = _value_table(
             ("Pair", "Spot"), [(pair, rate) for pair, rate in snap.fx_spot.items()]
         )
-        self._body.addWidget(self._fx_table)
+        left.addWidget(self._fx_table)
+        left.addStretch(1)
 
-        self._body.addWidget(QLabel("<b>Credit spreads</b> (bps)"))
+        right = QVBoxLayout()
+        right.addWidget(QLabel("<b>Credit spreads</b> (bps)"))
         for issuer, curve in snap.credit_curves.items():
             box = QGroupBox(f"{issuer} spreads")
             v = QVBoxLayout(box)
@@ -140,8 +166,17 @@ class MarketTab(QWidget):
             )
             self._credit_tables[issuer] = table
             v.addWidget(table)
-            self._body.addWidget(box)
+            right.addWidget(box)
+        right.addStretch(1)
+
+        cols.addLayout(left)
+        cols.addLayout(right)
+        self._body.addWidget(columns)
         self._body.addStretch(1)
+
+        # Refresh the plotted curves to match the (possibly edited) snapshot.
+        self.yield_view.set_figure(yield_curves_figure(snap))
+        self.credit_view.set_figure(credit_curves_figure(snap))
 
     # -- apply edits ------------------------------------------------------- #
     def _apply(self) -> None:

@@ -94,6 +94,45 @@ GLOSSARY: dict[str, str] = {
         "exposure, buffering the FX move over the margin period of risk. A higher "
         "haircut means the collateral mitigates less."
     ),
+    # Simulator scoring terms: teaching proxies for desk economics, not a real
+    # P&L attribution or capital model (see duw.scenario.scoring).
+    "Risk-adjusted score": (
+        "The simulator's headline score: raw P&L minus a risk charge on the "
+        "exposure you retained across the run (and on any limit breaches). It "
+        "docks reckless exposure even when no default happens, so a lucky reckless "
+        "book cannot out-score a well-collateralized one."
+    ),
+    "Raw P&L": (
+        "The scenario's profit and loss before the risk adjustment: revenue plus "
+        "CVA collected, minus realized default losses, exposure carrying cost, and "
+        "any limit-breach penalty."
+    ),
+    "Revenue": (
+        "Teaching proxy for desk revenue on a deal: an origination fee scaled by "
+        "deal size, less the spread conceded when you demand collateral. Declining "
+        "a deal forgoes it entirely."
+    ),
+    "CVA collected": (
+        "The credit valuation adjustment charged to the client and booked as "
+        "revenue when you take the deal."
+    ),
+    "Realized losses": (
+        "Money actually lost when a counterparty on your book defaults: "
+        "(1 - recovery) applied to the exposure left uncollateralized at default."
+    ),
+    "Exposure cost": (
+        "A per-round carrying charge on the exposure you retain after collateral: "
+        "a proxy for the capital and funding that open exposure ties up."
+    ),
+    "Breach penalty": (
+        "A flat P&L penalty applied when an accepted deal pushes exposure past its "
+        "credit limit."
+    ),
+    "Risk penalty": (
+        "The risk adjustment subtracted from raw P&L to form the risk-adjusted "
+        "score: a charge per unit of retained exposure taken across the run, plus "
+        "an extra charge per limit breach. Not part of P&L itself."
+    ),
 }
 
 

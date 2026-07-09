@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Tutorial: your first two deals",
+    "description": "A gentle, guided two-round walk-through of the underwriting decision. You take one deal from a shaky industrial that will default, and one from a healthy bank that will not. The coach explains every number and tells you what to do and why, so you can see what a winning book looks like before you play unaided.",
+    "n_rounds": 2,
+    "tutorial": true,
+    "intro": "Welcome. You are the underwriting desk. Each round a deal arrives and you decide: approve it, approve it only with collateral, or decline it. Three numbers matter most. Peak PFE is the worst-but-plausible amount you could lose if the counterparty defaulted, the size of the risk. CVA is the price of that default risk, which you charge the client as revenue. Realized losses are what you actually lose if a name on your book defaults. Your goal is the highest Risk-adjusted score: earn revenue, but do not carry exposure you would lose in a default. The coach panel on each deal tells you what to weigh and what it recommends. Follow it this time; next time you are on your own.",
+    "outro": "That is the whole loop. The shaky name needed collateral because it defaulted, and collateral turned a real loss into zero. The healthy name did not need it, so demanding collateral there would only have conceded spread. Reading exposure, pricing the credit, and setting the right collateral is the entire job. Load the full scenario from the prompt screen to play it for real.",
+    "learning_objectives": [
+      "Read Peak PFE as the size of the counterparty risk on a deal.",
+      "Require collateral on a name that may default, to neutralize the loss.",
+      "Leave a healthy survivor open rather than concede spread for protection it does not need.",
+      "See how the Risk-adjusted score rewards revenue net of the risk you retain."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "TUT-IND",
+        "name": "Widget Industrial Co",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 3000.0,
+          "total_liabilities": 2200.0,
+          "current_assets": 1200.0,
+          "current_liabilities": 900.0,
+          "retained_earnings": 320.0,
+          "ebit": 260.0,
+          "sales": 2400.0,
+          "market_equity": 900.0,
+          "equity_volatility": 0.4,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": [
+        {
+          "round": 1,
+          "spread_multiplier": 4.0,
+          "internal_rating": "CCC"
+        }
+      ]
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "TUT-BANK",
+        "name": "Stalwart Bank",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 12000.0,
+          "total_liabilities": 6000.0,
+          "current_assets": 6400.0,
+          "current_liabilities": 2400.0,
+          "retained_earnings": 3600.0,
+          "ebit": 2100.0,
+          "sales": 8400.0,
+          "market_equity": 9000.0,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +200bp",
+        "rate_shift_bps": 200.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "T1-WIDGET-IRS",
+        "counterparty_id": "TUT-IND",
+        "notional": 10000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Deal one: Widget Industrial wants a 5-year payer swap. Look at the Consequences panel. Peak PFE is how much you could lose if Widget defaults while the swap is in your favour, and as rates rise this swap moves your way, so that exposure grows. Widget is a shaky BBB name that will deteriorate and default next round. So charge the CVA and take the business, but require collateral: with a CSA in place the exposure is covered and a default costs you nothing. Set the action to 'Condition (collateralize)' and tick 'Require collateral'. Click 'Apply recommended' to fill it in, then Commit.",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "limit": 3000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "T2-STALWART-IRS",
+        "counterparty_id": "TUT-BANK",
+        "notional": 10000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Deal two: Stalwart Bank, a strong A-rated name that stays healthy all the way through. Same trade, very different call. Because Stalwart will not default, collateral here buys you protection you do not need and concedes spread in return, which lowers your revenue. Just approve it and leave it open to earn the full fee. Set the action to 'Approve' and leave 'Require collateral' unticked, or click 'Apply recommended'. Then Commit to finish the scenario.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 3000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 1,
+      "counterparty_id": "TUT-IND",
+      "coaching": "Widget Industrial has defaulted, one round after you took its swap. Look at the Realized loss: because you required collateral, the exposure was covered and the loss is zero. Had you approved it open, this is exactly where a large closeout loss would have landed on your book. That single collateral decision is the difference between a clean book and a bad quarter."
+    }
+  ]
+}

@@ -1,15 +1,18 @@
 """CVA analytics tab.
 
-Shows the per-interval CVA contribution chart and the CVA / DVA / BCVA totals.
+Shows the per-interval CVA contribution chart and the CVA / DVA / BCVA totals,
+with a plain-English reading of the adjustment beside it.
 """
 
 from __future__ import annotations
 
 import math
 
-from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
 from duw.domain.results import AnalysisResults
+from duw.reports.interpreter import interpret_cva
+from duw.ui.widgets.analytics_panel import side_panel
 from duw.ui.widgets.charts import cva_figure
 from duw.ui.widgets.plotly_view import PlotlyView
 from duw.ui.widgets.result_table import MetricsTable
@@ -20,16 +23,20 @@ def _money(x: float) -> str:
 
 
 class CvaTab(QWidget):
-    """CVA contribution chart plus the adjustment totals."""
+    """CVA contribution chart plus the adjustment totals and commentary."""
 
     def __init__(self) -> None:
         super().__init__()
         self.view = PlotlyView()
         self.table = MetricsTable()
+        self.commentary = QLabel("Run an analysis to see a plain-English summary here.")
+
         splitter = QSplitter()
         splitter.addWidget(self.view)
-        splitter.addWidget(self.table)
-        splitter.setSizes([820, 300])
+        splitter.addWidget(side_panel(self.table, self.commentary))
+        splitter.setStretchFactor(0, 1)
+        splitter.setSizes([920, 340])
+
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
         self.view.set_message("Run an analysis to see the CVA breakdown.")
@@ -38,6 +45,7 @@ class CvaTab(QWidget):
         """Render the CVA result from ``results``."""
         cva = results.cva
         self.view.set_figure(cva_figure(cva))
+        self.commentary.setText(interpret_cva(results))
         if cva is None:
             self.table.set_metrics([])
             return

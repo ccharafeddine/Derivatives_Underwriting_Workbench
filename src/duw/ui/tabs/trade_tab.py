@@ -50,6 +50,7 @@ from duw.domain.instruments import (
     Trade,
 )
 from duw.ui.app_state import AppState
+from duw.ui.help import control_help
 
 _CURRENCIES = ("USD", "EUR")
 _PRODUCTS = (
@@ -139,6 +140,12 @@ class TradeTab(QWidget):
         self.maturity_date.setDisplayFormat("yyyy-MM-dd")
         self.maturity_date.setDate(QDate(2030, 6, 30))
         form.addRow("Maturity date", self.maturity_date)
+
+        self.product.setToolTip(control_help("product"))
+        self.notional.setToolTip(control_help("notional"))
+        self.currency.setToolTip(control_help("currency"))
+        self.trade_date.setToolTip(control_help("trade_date"))
+        self.maturity_date.setToolTip(control_help("maturity_date"))
 
         self.stack = QStackedWidget()
         self.stack.addWidget(self._build_irs_page())
@@ -239,6 +246,8 @@ class TradeTab(QWidget):
         self.irs_float_freq = _frequency_combo(Frequency.QUARTERLY)
         self.irs_float_spread = _rate_spin(0.0, " bps", decimals=1)
         self.irs_float_spread.setRange(-1000.0, 1000.0)
+        self.irs_fixed_rate.setToolTip(control_help("fixed_rate"))
+        self.irs_direction.setToolTip(control_help("direction"))
         form.addRow("Fixed rate", self.irs_fixed_rate)
         form.addRow("Direction", self.irs_direction)
         form.addRow("Fixed frequency", self.irs_fixed_freq)

@@ -137,6 +137,15 @@
         "float_day_count": "act/360",
         "float_index": "SOFR",
         "float_spread": 0.0
+      },
+      "coaching": "Acme is a BBB industrial that is about to deteriorate hard and default in round 3. This payer swap moves into the money as rates rise, so your exposure to Acme grows exactly as its credit gets worse. If you approve it uncollateralized you keep the full closeout loss when it fails. The fix is not to decline good business; it is to require collateral so the exposure is covered. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "limit": 3000000.0
       }
     },
     {
@@ -157,13 +166,20 @@
         "float_day_count": "act/360",
         "float_index": "SOFR",
         "float_spread": 0.0
+      },
+      "coaching": "Globex is a strong A-rated name that stays healthy and never defaults. On a survivor like this, demanding collateral just concedes spread for protection you do not need. Approve it and leave it open to earn the full fee. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 2000000.0
       }
     }
   ],
   "defaults": [
     {
       "round": 2,
-      "counterparty_id": "CP001"
+      "counterparty_id": "CP001",
+      "coaching": "Acme has defaulted. If you required collateral on its swap, the exposure was covered and your realized loss is zero, the whole point of the CSA. If you approved it open, you are now carrying the closeout loss. Same trade, opposite outcome: the collateral terms decided the consequence, not the trade economics."
     }
   ]
 }

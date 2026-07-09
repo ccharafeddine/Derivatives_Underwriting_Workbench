@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Dollar surge and an importer defaults",
+    "description": "Three rounds. The dollar rallies against the euro, moving an FX forward in your favour against Solara Imports, whose credit weakens until it defaults. A strong exporter, Keystone Aero, is fine. Collateralize the importer; keep the exporter open.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Read counterparty exposure on an FX forward.",
+      "Collateralize a name that will default on an FX-driven exposure.",
+      "Leave a healthy FX counterparty open."
+    ]
+  },
+  "settings": {
+    "seed": 2024,
+    "n_paths": 400,
+    "n_steps": 5,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "FX-SOLARA",
+        "name": "Solara Imports",
+        "sector": "Consumer",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 3400,
+          "total_liabilities": 2600,
+          "current_assets": 1700.0,
+          "current_liabilities": 1170.0,
+          "retained_earnings": 952.0000000000001,
+          "ebit": 544.0,
+          "sales": 2550.0,
+          "market_equity": 950,
+          "equity_volatility": 0.48,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "FX-KEY",
+        "name": "Keystone Aero",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 11200,
+          "total_liabilities": 5000,
+          "current_assets": 5600.0,
+          "current_liabilities": 2250.0,
+          "retained_earnings": 3136.0000000000005,
+          "ebit": 1792.0,
+          "sales": 8400.0,
+          "market_equity": 9200,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "USD +8%",
+        "rate_shift_bps": 60.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 8.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "USD +16%",
+        "rate_shift_bps": 120.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 16.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "FXForward",
+        "trade_id": "FX1-SOLARA-FWD",
+        "counterparty_id": "FX-SOLARA",
+        "notional": 15000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "base_currency": "EUR",
+        "quote_currency": "USD",
+        "contract_rate": 1.08,
+        "direction": "buy_base"
+      },
+      "coaching": "Solara Imports deteriorates and defaults in this scenario. Your exposure on this FXForward grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 9000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "FXForward",
+        "trade_id": "FX2-KEY-FWD",
+        "counterparty_id": "FX-KEY",
+        "notional": 12000000,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "base_currency": "EUR",
+        "quote_currency": "USD",
+        "contract_rate": 1.08,
+        "direction": "buy_base"
+      },
+      "coaching": "Keystone Aero stays healthy and never defaults here. Charge the CVA and approve this FXForward open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 9000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "FX-SOLARA",
+      "coaching": "Solara Imports has defaulted. If you required collateral, the exposure was covered and your realized loss is zero. If you approved it open, this is the closeout loss a CSA would have prevented. Same trade, opposite outcome: the collateral terms decide the consequence."
+    }
+  ]
+}
