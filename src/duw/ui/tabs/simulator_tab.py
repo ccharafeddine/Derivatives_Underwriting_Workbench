@@ -272,6 +272,9 @@ class SimulatorTab(QWidget):
         self._benchmark_score: ScoreResult | None = None
         self._bench_thread = None
         self._bench_worker: ScenarioRunWorker | None = None
+        #: A benchmark asked for while one was already running, re-armed when
+        #: that thread finishes so the new stage still gets scored.
+        self._bench_pending = False
         # Bumped on each load so a stale benchmark from a prior scenario is
         # ignored when it lands.
         self._bench_gen = 0
@@ -983,7 +986,12 @@ class SimulatorTab(QWidget):
             return
         target = self._benchmark_score.risk_adjusted_score
         student = self.score_result.risk_adjusted_score
-        ratio = student / target if target > 0 else (1.0 if student >= target else 0.0)
+        # A stage whose best play does not even break even cannot be graded as a
+        # fraction of it. Treating that as a full score handed out a gold medal
+        # and cleared the stage for merely matching a losing benchmark, so it
+        # scores zero instead; practice mode is the way past a mis-authored
+        # scenario, not an accidental pass.
+        ratio = student / target if target > 0 else 0.0
         self._progress = self._progress.with_result(stage, ratio, student)
         self._save_progress()
         self._recorded = True
@@ -1076,9 +1084,13 @@ class SimulatorTab(QWidget):
         self._run_gen += 1
         self.stage_outcome.setVisible(False)
         self.skills_group.setVisible(False)
-        # A scenario flagged as a tutorial turns guided mode on automatically.
-        if scenario.meta.tutorial:
-            self._set_coached(True)
+        # Guided mode follows the scenario's own flag in both directions. Only
+        # turning it *on* left it latched: after the opening tutorial every
+        # later stage stayed coached, including the ones the campaign
+        # deliberately leaves unaided, and the "Apply recommended" button then
+        # cleared the whole campaign at gold with one click per deal. The
+        # learner can still override with the checkbox once a stage is loaded.
+        self._set_coached(scenario.meta.tutorial)
         # Reset any benchmark from a prior scenario; a stale in-flight run is
         # discarded by the generation token when it lands.
         self._bench_gen += 1
@@ -1474,13 +1486,17 @@ class SimulatorTab(QWidget):
                 self.action_combo.setCurrentIndex(i)
                 break
         self.collateral_check.setChecked(decision.require_collateral)
-        spins: tuple[tuple[QDoubleSpinBox | QSpinBox, float | int], ...] = (
+        spins: list[tuple[QDoubleSpinBox | QSpinBox, float | int]] = [
             (self.threshold_spin, decision.csa_threshold),
             (self.mta_spin, decision.csa_mta),
             (self.im_spin, decision.csa_initial_margin),
             (self.mpor_spin, decision.csa_mpor_days),
-            (self.limit_spin, decision.limit),
-        )
+        ]
+        # A limit pinned by the credit committee is read-only for a reason:
+        # setValue ignores that, so applying a recommendation would quietly
+        # replace the committee's number with one the learner cannot undo.
+        if not self.limit_spin.isReadOnly():
+            spins.append((self.limit_spin, decision.limit))
         for spin, value in spins:
             spin.blockSignals(True)
             spin.setValue(value)
@@ -1523,6 +1539,7 @@ class SimulatorTab(QWidget):
         self._committed[step.deal.trade_id] = self._current_candidate()
         if self._thread is not None:
             self._commit_pending = True
+            self._update_enabled()  # grey the button so it cannot be queued twice
             return
         self._start_run(dict(self._committed), "commit")
 
@@ -1618,7 +1635,12 @@ class SimulatorTab(QWidget):
 
         self.consequence_header.setText("<b>Consequences before you commit</b>")
         candidate = self._current_candidate()
-        limit = candidate.limit
+        # Utilization and headroom come from the engine, which uses the
+        # committee's limit whenever the scenario sets one. Showing the spin
+        # box's value beside them put a limit on screen that the two figures
+        # below it were not computed against.
+        committee = self._committee_limit(step.deal.counterparty_id)
+        limit = committee if committee is not None else candidate.limit
         rows = [
             ("Peak PFE", _money(outcome.peak_pfe)),
             ("EPE", _money(outcome.epe)),
@@ -1699,8 +1721,18 @@ class SimulatorTab(QWidget):
 
     # -- guided-mode benchmark (best play) --------------------------------- #
     def _start_benchmark(self) -> None:
-        """Run the recommended-decision benchmark off-thread, if not already."""
-        if self._scenario is None or self._bench_thread is not None:
+        """Run the recommended-decision benchmark off-thread, if not already.
+
+        A request arriving while the previous scenario's benchmark is still in
+        flight is remembered rather than dropped: without the re-arm the new
+        stage never got a benchmark at all, so it could not be scored, graded
+        or recorded, and the debrief sat on "Scoring against best play…"
+        forever.
+        """
+        if self._scenario is None:
+            return
+        if self._bench_thread is not None:
+            self._bench_pending = True
             return
         decisions = coaching.recommended_decisions(self._scenario)
         if not decisions:
@@ -1735,6 +1767,9 @@ class SimulatorTab(QWidget):
     def _on_bench_thread_done(self) -> None:
         self._bench_thread = None
         self._bench_worker = None
+        if self._bench_pending:
+            self._bench_pending = False
+            self._start_benchmark()
 
     def is_benchmark_ready(self) -> bool:
         """Whether the best-play benchmark has finished (for tests)."""
@@ -1984,9 +2019,14 @@ class SimulatorTab(QWidget):
             self.im_spin,
             self.mpor_spin,
             self.limit_spin,
-            self.commit_btn,
         ):
             w.setEnabled(is_decision and not busy)
+        # Commit stays available while a *preview* recalculates: the learner has
+        # already decided and should not have to wait on a number they are not
+        # going to read. The commit is queued and runs when the worker frees.
+        # During a commit run it is disabled, so a decision cannot be sent twice.
+        previewing = busy and self._run_mode == "preview" and not self._commit_pending
+        self.commit_btn.setEnabled(is_decision and (not busy or previewing))
         self.continue_btn.setEnabled(is_default and not busy)
         has_reco = (
             is_decision and step.deal is not None and step.deal.recommended is not None

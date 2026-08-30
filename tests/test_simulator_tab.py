@@ -317,7 +317,7 @@ def test_every_decision_control_is_disabled_while_a_run_is_in_flight(qapp) -> No
     tab = SimulatorTab()
     tab.load_default()
     _wait_idle(tab)
-    controls = (
+    dials = (
         tab.action_combo,
         tab.collateral_check,
         tab.threshold_spin,
@@ -325,14 +325,20 @@ def test_every_decision_control_is_disabled_while_a_run_is_in_flight(qapp) -> No
         tab.im_spin,
         tab.mpor_spin,
         tab.limit_spin,
-        tab.commit_btn,
     )
-    assert all(c.isEnabled() for c in controls)
+    assert all(c.isEnabled() for c in dials)
     tab._request_preview()
     assert tab.is_busy()
-    assert not any(c.isEnabled() for c in controls), "a control stayed live mid-run"
+    assert not any(c.isEnabled() for c in dials), "a dial stayed live mid-run"
+    # Commit is the exception: the learner has already decided, so it stays
+    # available during a preview and the run is queued.
+    assert tab.commit_btn.isEnabled()
+    tab._on_commit()
+    assert tab._commit_pending
+    # Once queued it greys out, so the same decision cannot be sent twice.
+    assert not tab.commit_btn.isEnabled()
     _wait_idle(tab)
-    assert all(c.isEnabled() for c in controls)
+    assert all(c.isEnabled() for c in dials)
 
 
 def test_loading_a_new_scenario_discards_work_queued_against_the_old_one(

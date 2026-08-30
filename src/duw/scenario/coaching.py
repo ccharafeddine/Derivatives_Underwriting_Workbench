@@ -291,6 +291,12 @@ def skill_report(
     )
 
     # 2. Pricing — was the credit risk charged for?
+    #
+    # The CVA charge is scaled by the exposure left after collateral (see
+    # Scorer._cva_collected), so a shortfall here has two quite different
+    # causes: business turned away, or business margined so tightly there was
+    # little credit risk left to charge for. Naming only the first misread a
+    # collateralized book as a declined one.
     cva_gap = t.cva_collected - s.cva_collected
     if cva_gap <= tol:
         detail = (
@@ -299,8 +305,9 @@ def skill_report(
         )
     else:
         detail = (
-            f"You collected {_money(cva_gap)} less CVA than the best play, so "
-            "credit risk you did take went unpriced — usually a declined deal."
+            f"You collected {_money(cva_gap)} less CVA than the best play. "
+            "Either you declined deals the reference took, or you margined "
+            "them so tightly there was little credit risk left to charge for."
         )
     grades.append(
         SkillGrade("Pricing the credit", _grade_gap(max(cva_gap, 0.0), tol), detail)

@@ -385,6 +385,10 @@ def _cds_spread_5y(snapshot: MarketSnapshot, issuer: str | None) -> float | None
     if issuer is None or issuer not in snapshot.credit_curves:
         return None
     curve = snapshot.credit_curves[issuer]
+    if not curve.tenors:
+        # An instructor-authored snapshot could carry an empty curve; report no
+        # spread, as for a missing issuer, rather than failing the whole run.
+        return None
     idx = min(range(len(curve.tenors)), key=lambda i: abs(curve.tenors[i] - 5.0))
     return float(curve.spreads[idx])
 

@@ -10,9 +10,11 @@ the counterparty's credit evidence so there is something to judge on.
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtCore import QEventLoop, QTimer
 
 from duw.scenario.campaign import CAMPAIGN
+from duw.scenario.io import load_bundled_scenario
 from duw.scenario.model import DecisionAction
 from duw.store.progress import ProgressStore
 from duw.ui.tabs.simulator_tab import PREDICTION_SKIPPED, SimulatorTab
@@ -407,3 +409,65 @@ def test_campaign_blurb_states_the_real_stage_count(qapp, tmp_path) -> None:
     blurb = tab.framing.text()
     assert f"{len(CAMPAIGN)} stages" in blurb
     assert "Thirteen" not in blurb
+
+
+def test_guided_mode_follows_the_scenario_and_does_not_latch(qapp, tmp_path) -> None:
+    """Playing the tutorial must not leave later stages coached.
+
+    _set_coached was only ever called with True, so after stage 1 the coach
+    panel and its "Apply recommended" button stayed available on every later
+    stage — including the ones the campaign deliberately leaves unaided, which
+    made the whole campaign clearable at gold one click per deal.
+    """
+    tab = SimulatorTab(progress_store=ProgressStore(tmp_path / "campaign.json"))
+    tutorial = CAMPAIGN.stages[0]
+    assert load_bundled_scenario(tutorial.scenario_name).meta.tutorial is True
+    tab.play_stage(tutorial)
+    _settled(tab)
+    assert tab._coached is True
+
+    unaided = next(
+        s
+        for s in CAMPAIGN.stages
+        if not load_bundled_scenario(s.scenario_name).meta.tutorial
+    )
+    tab._progress = tab._progress.with_practice_mode(True)
+    tab.play_stage(unaided)
+    _settled(tab)
+    assert tab._coached is False, "coaching latched on into an unaided stage"
+    assert not tab.coach_group.isVisible()
+    assert not tab.apply_reco_btn.isEnabled()
+
+
+def test_a_committee_limit_is_shown_and_never_overwritten(qapp, tmp_path) -> None:
+    """The limit on screen must be the one utilization was computed against.
+
+    Scenarios that pin a committee limit make the box read-only, but
+    set_candidate wrote the recommendation's limit into it anyway and the
+    consequence panel displayed that value beside a utilization derived from
+    the committee's.
+    """
+    tab = SimulatorTab(progress_store=ProgressStore(tmp_path / "campaign.json"))
+    tab._progress = tab._progress.with_practice_mode(True)
+    stage = CAMPAIGN.stage("collateral_terms")
+    tab.play_stage(stage)
+    _settled(tab)
+
+    scenario = load_bundled_scenario(stage.scenario_name)
+    committee = scenario.counterparties[0].credit_limit
+    assert committee is not None
+    assert tab.limit_spin.isReadOnly()
+    assert tab.limit_spin.value() == pytest.approx(committee)
+
+    tab._apply_recommended()
+    _settled(tab)
+    assert tab.limit_spin.value() == pytest.approx(committee)
+
+    # The consequences are withheld until the prediction is answered.
+    tab._on_skip_prediction()
+    _settled(tab)
+    rows = {
+        tab.consequence_table.item(r, 0).text(): tab.consequence_table.item(r, 1).text()
+        for r in range(tab.consequence_table.rowCount())
+    }
+    assert rows["Limit"] == f"{committee:,.0f}"

@@ -180,7 +180,7 @@
         "csa_mta": 0.0,
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
-        "limit": 9000000.0
+        "limit": 5000000.0
       }
     },
     {
