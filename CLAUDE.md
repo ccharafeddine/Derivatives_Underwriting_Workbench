@@ -57,23 +57,32 @@ visible and manipulable so the concept sticks.
   swaps, multi-currency collateral) must be surfaced as manipulable concept
   labs, not left as backend-only numbers.
 
-### Educational roadmap (intended direction — NOT yet built)
+### Educational roadmap
 
-Future sessions should build toward these so the work stays coherent. None of
-these exist in the code today; do not describe them as implemented.
+**Built.** The **role-play underwriting simulator** is implemented (the
+Simulator tab, over `scenario/` and `store/progress.py`). It is a 17-stage
+**campaign**, not a scenario picker: stages run in dependency order, each
+unlocking the next, over all five products and every XVA term the app computes.
+Stages that introduce a new mechanism are authored as guided tutorials — coach
+narration, an author's recommended decision, and a predict-then-reveal question
+gating the analytics — while stages that ask the learner to *apply* a mechanism
+they already met are deliberately unaided. Runs are scored on risk-adjusted P&L
+against the scenario's own best-play benchmark, with a four-skill debrief;
+progress, medals and best scores persist. Describe this as implemented.
 
-- **Role-play underwriting simulator.** A proposed deal each round; the student
-  assesses the counterparty, sets collateral and limits, and prices it;
-  simulated time then advances, counterparties migrate in credit quality and
-  some default, and the student sees the consequences of earlier decisions,
-  scored on risk-adjusted P&L.
-- **Interactive concept labs.** A slider-and-live-chart sandbox per concept —
-  e.g. a wrong-way-risk lab where the correlation is a slider and CVA responds
-  live; a collateral lab where threshold/MTA/MPoR move and collateralized PFE
-  redraws.
+**Not built.** These remain future work; do not describe them as implemented.
+
+- **Interactive concept labs.** A slider-and-live-chart sandbox per concept,
+  standing outside the deal flow — e.g. a wrong-way-risk lab where the
+  correlation is a slider and CVA responds live. Partially anticipated inside
+  the simulator, whose decision page already exposes CSA threshold / MTA /
+  initial margin / MPoR as live dials with the exposure numbers responding, but
+  there is no free-standing lab surface.
 - **Instructor mode.** Author and share a scenario — scripted counterparty
   credit paths, a market path, a deal stream, and defaults — and review student
-  decisions against it.
+  decisions against it. The on-disk scenario format (`scenario/io.py`) is the
+  intended substrate and is stable; what is missing is the authoring UI and any
+  review of a learner's decisions.
 
 ---
 

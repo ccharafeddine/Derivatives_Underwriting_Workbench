@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "meta": {
-    "title": "Dollar surge and an importer defaults",
-    "description": "Three rounds. The dollar rallies against the euro, moving an FX forward in your favour against Solara Imports, whose credit weakens until it defaults. A strong exporter, Keystone Aero, is fine. Collateralize the importer; keep the exporter open.",
+    "title": "Euro surge and an importer defaults",
+    "description": "Three rounds. The euro rallies against the dollar, carrying a bought-EUR forward further into the money against Solara Imports, whose credit weakens until it defaults. A strong exporter, Keystone Aero, is fine. The lesson is where an FX forward's exposure comes from: not from the notional, but from how far spot has travelled from the rate you contracted at.",
     "n_rounds": 3,
     "learning_objectives": [
       "Read counterparty exposure on an FX forward.",
@@ -88,7 +88,7 @@
     {
       "round": 1,
       "spec": {
-        "name": "USD +8%",
+        "name": "EUR +8% vs USD",
         "rate_shift_bps": 60.0,
         "steepen_bps": 0.0,
         "fx_shock_pct": 8.0,
@@ -98,7 +98,7 @@
     {
       "round": 2,
       "spec": {
-        "name": "USD +16%",
+        "name": "EUR +16% vs USD",
         "rate_shift_bps": 120.0,
         "steepen_bps": 0.0,
         "fx_shock_pct": 16.0,
@@ -122,7 +122,7 @@
         "contract_rate": 1.08,
         "direction": "buy_base"
       },
-      "coaching": "Solara Imports deteriorates and defaults in this scenario. Your exposure on this FXForward grows as the market moves your way, so an uncollateralized approval keeps the full closeout loss at default. Take the business but require collateral to neutralize it. Recommended: Condition (require collateral).",
+      "coaching": "Solara Imports wants to buy fifteen million euros forward at 1.0825, the current outright. An FX forward has no coupons and no amortisation: there is one exchange at maturity, and its value to you is simply how far spot has moved away from the rate written into the contract, discounted back. That is why the exposure profile on a forward keeps building towards maturity instead of peaking early and decaying like a swap's. Solara is an importer, it deteriorates through this scenario, and it defaults. So you are about to hold a claim that grows every round against a name that will not be there to settle it. Take the business, charge for the credit, and secure it.",
       "recommended": {
         "action": "condition",
         "require_collateral": true,
@@ -131,6 +131,16 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 9000000.0
+      },
+      "prediction": {
+        "prompt": "What determines how much counterparty exposure this FX forward creates?",
+        "options": [
+          "The notional alone, since that is the amount being exchanged",
+          "How far spot moves away from the 1.0825 rate you contracted at, scaled by the notional",
+          "The interest rate differential between EUR and USD, since that is what sets the forward points"
+        ],
+        "correct_index": 1,
+        "explanation": "The notional sets the scale, but it is not the exposure. A forward struck at today's outright is worth roughly nothing the moment you write it, whatever its size. It becomes an asset only as spot drifts away from the contracted rate, and the exposure is that gap multiplied by the notional and discounted. The rate differential matters too, but only because it sets where the forward is struck in the first place; once the trade exists, spot does the work."
       }
     },
     {
@@ -148,7 +158,7 @@
         "contract_rate": 1.08,
         "direction": "buy_base"
       },
-      "coaching": "Keystone Aero stays healthy and never defaults here. Charge the CVA and approve this FXForward open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "coaching": "Keystone Aero, an exporter, wants the same trade a round later and three million smaller: twelve million euros forward, still struck at 1.08. Look carefully before you assume a smaller notional means a smaller risk. The euro has already risen about 8%, so a forward struck at 1.08 is in the money from the day it is written, and the peak PFE comes out at least as large as the fifteen-million trade you did last round. On the credit, Keystone is a different story from Solara: it stays healthy throughout and never defaults, so collateral here buys protection you will not need and costs you spread to demand. Approve it open.",
       "recommended": {
         "action": "approve",
         "require_collateral": false,
@@ -157,6 +167,18 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 9000000.0
+      },
+      "prediction": {
+        "prompt": [
+          "This forward is a fifth smaller than last round's, and it is still struck at 1.08 — but spot has moved to about 1.169. What will its peak PFE look like?"
+        ],
+        "options": [
+          "Roughly a fifth smaller, because exposure scales with notional",
+          "As large as or larger than last round's, because it starts well in the money: spot has already moved 8% past the strike",
+          "Near zero, because a forward struck away from spot is off-market and cannot be a valid trade"
+        ],
+        "correct_index": 1,
+        "explanation": "Exposure is the gap between spot and the contracted rate, times notional. Cutting the notional by a fifth shrinks the multiplier, but writing the trade at 1.08 when spot is already near 1.169 opens a gap that the first trade only reached after a full round of market moves. The second effect is the larger one, which is why 'smaller notional' is never on its own a statement about risk."
       }
     }
   ],

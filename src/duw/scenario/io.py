@@ -44,6 +44,7 @@ from duw.scenario.model import (
     DecisionAction,
     DefaultEvent,
     MarketRound,
+    Prediction,
     Scenario,
     ScenarioCounterparty,
     ScenarioMeta,
@@ -198,6 +199,16 @@ def _trade_from_dict(d: dict[str, Any]) -> Trade:
     raise ScenarioValidationError(f"unknown or missing trade product: {product!r}")
 
 
+def _prediction_from_dict(d: dict[str, Any]) -> Prediction:
+    """Parse a predict-then-reveal question."""
+    return Prediction(
+        prompt=d["prompt"],
+        options=tuple(d["options"]),
+        correct_index=int(d["correct_index"]),
+        explanation=d.get("explanation", ""),
+    )
+
+
 def _deal_from_dict(d: dict[str, Any]) -> DealArrival:
     """Parse a deal arrival, including optional guided-mode coaching fields.
 
@@ -212,11 +223,13 @@ def _deal_from_dict(d: dict[str, Any]) -> DealArrival:
         rec = dict(rec_raw)
         rec.setdefault("trade_id", trade.trade_id)
         recommended = decision_from_dict(rec)
+    pred_raw = d.get("prediction")
     return DealArrival(
         round=int(d["round"]),
         trade=trade,
         coaching=d.get("coaching", ""),
         recommended=recommended,
+        prediction=_prediction_from_dict(pred_raw) if pred_raw is not None else None,
     )
 
 
@@ -307,6 +320,7 @@ def _settings_to_dict(s: SimSettings) -> dict[str, Any]:
         "kappa_rate": s.kappa_rate,
         "kappa_credit": s.kappa_credit,
         "credit_vol": s.credit_vol,
+        "compute_sensitivities": s.compute_sensitivities,
     }
 
 
@@ -341,6 +355,7 @@ def scenario_to_dict(scenario: Scenario) -> dict[str, Any]:
             {
                 "counterparty": _counterparty_to_dict(cp.counterparty),
                 "recovery_rate": cp.recovery_rate,
+                "credit_limit": cp.credit_limit,
                 "credit_path": [
                     {
                         "round": cs.round,
@@ -372,12 +387,25 @@ def _recommended_to_dict(decision: Decision) -> dict[str, Any]:
     return out
 
 
+def _prediction_to_dict(prediction: Prediction) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "prompt": prediction.prompt,
+        "options": list(prediction.options),
+        "correct_index": prediction.correct_index,
+    }
+    if prediction.explanation:
+        out["explanation"] = prediction.explanation
+    return out
+
+
 def _deal_to_dict(deal: DealArrival) -> dict[str, Any]:
     out: dict[str, Any] = {"round": deal.round, "trade": _trade_to_dict(deal.trade)}
     if deal.coaching:
         out["coaching"] = deal.coaching
     if deal.recommended is not None:
         out["recommended"] = _recommended_to_dict(deal.recommended)
+    if deal.prediction is not None:
+        out["prediction"] = _prediction_to_dict(deal.prediction)
     return out
 
 
@@ -408,6 +436,11 @@ def scenario_from_dict(raw: dict[str, Any]) -> Scenario:
             ScenarioCounterparty(
                 counterparty=_counterparty_from_dict(cp_raw["counterparty"]),
                 recovery_rate=float(cp_raw.get("recovery_rate", 0.4)),
+                credit_limit=(
+                    float(cp_raw["credit_limit"])
+                    if cp_raw.get("credit_limit") is not None
+                    else None
+                ),
                 credit_path=tuple(
                     CreditState(
                         round=int(cs["round"]),
@@ -471,6 +504,11 @@ def validate_scenario(scenario: Scenario) -> None:
             raise ScenarioValidationError(
                 f"{cp.counterparty_id}: recovery_rate must be in [0, 1], "
                 f"got {cp.recovery_rate}"
+            )
+        if cp.credit_limit is not None and cp.credit_limit <= 0.0:
+            raise ScenarioValidationError(
+                f"{cp.counterparty_id}: credit_limit must be positive, "
+                f"got {cp.credit_limit}"
             )
         for cs in cp.credit_path:
             _require_round(cs.round, n, f"credit state for {cp.counterparty_id}")

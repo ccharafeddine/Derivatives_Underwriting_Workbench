@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Wrong-way risk: when the exposure and the default arrive together",
+    "description": "Petronia Energy is a leveraged oil producer that pays fixed on a large swap. The move that puts that swap deep in your favour is the same move that pushes Petronia towards failure, so your exposure is at its largest precisely when the counterparty is least able to pay. This scenario runs with a wrong-way correlation of 0.6, so the CVA you see already prices that link. Read what it does to the charge, and to the decision.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Define wrong-way risk as positive correlation between exposure and the counterparty's default probability.",
+      "Recognize that independence understates CVA when exposure and credit move together.",
+      "Compare names by CVA per unit of exposure rather than by the headline charge.",
+      "Collateralize a wrong-way name, where waiting for the exposure to appear means waiting until it cannot be collected."
+    ]
+  },
+  "settings": {
+    "seed": 8842,
+    "n_paths": 800,
+    "n_steps": 8,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.6,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "PETR",
+        "name": "Petronia Energy",
+        "sector": "Energy",
+        "ticker": null,
+        "cds_issuer": "INITECH",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 5200.0,
+          "total_liabilities": 4500.0,
+          "current_assets": 1400.0,
+          "current_liabilities": 1700.0,
+          "retained_earnings": 180.0,
+          "ebit": 240.0,
+          "sales": 3800.0,
+          "market_equity": 700.0,
+          "equity_volatility": 0.58,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.3,
+      "credit_path": [
+        {
+          "round": 1,
+          "spread_multiplier": 2.0,
+          "internal_rating": "B"
+        },
+        {
+          "round": 2,
+          "spread_multiplier": 4.5,
+          "internal_rating": "CCC"
+        }
+      ]
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "STAL",
+        "name": "Stalwart Bank",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 12000.0,
+          "total_liabilities": 6000.0,
+          "current_assets": 6400.0,
+          "current_liabilities": 2400.0,
+          "retained_earnings": 3600.0,
+          "ebit": 2100.0,
+          "sales": 8400.0,
+          "market_equity": 9000.0,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +150bp",
+        "rate_shift_bps": 150.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +250bp, energy credit blows out",
+        "rate_shift_bps": 250.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 40.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "WWR1-PETRONIA",
+        "counterparty_id": "PETR",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Everything so far has assumed your exposure and your counterparty's credit move independently. They often do not. Petronia is a leveraged producer that pays fixed: rates rising puts the swap in your favour, and the same tightening squeezes exactly this kind of borrower. Exposure peaks when the ability to pay is at its worst. That is wrong-way risk, and this scenario prices it with a correlation of 0.6 rather than the zero you have been running. Compare the CVA on the Consequences panel with the exposure it is charged on: around 112k against a peak PFE of about 2.4m, or 4.6%. Hold that ratio in mind, because next round you will see the same trade on a strong name and it will price at about half of it. Part of the difference is Petronia's credit; part is the wrong-way tilt, which pushes the expected exposure towards the states where Petronia has already failed. Treat the number as the warning it is, and collateralize.",
+      "prediction": {
+        "prompt": "Wrong-way risk means exposure tends to be large exactly when the counterparty is most likely to default. Holding the trade and the credit curve fixed, what does raising the correlation from 0 to 0.6 do to CVA?",
+        "options": [
+          "Lowers it, because correlated risks partly cancel out",
+          "Leaves it unchanged, since CVA depends only on exposure and the survival curve",
+          "Raises it, because the expected exposure that matters is the exposure conditional on default"
+        ],
+        "correct_index": 2,
+        "explanation": "CVA weights expected exposure by the marginal probability of default in each interval. Under independence you may use the unconditional expected exposure. Under wrong-way risk the exposure conditional on the counterparty defaulting is higher than the unconditional average, so the same trade and the same survival curve produce a materially larger charge. Right-way risk, where exposure falls as credit worsens, works the other way."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "WWR2-STALWART",
+        "counterparty_id": "STAL",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "The same 20m payer swap, one round later with rates 150bp higher, so this exposure is actually the larger of the two: peak PFE near 4.0m against Petronia's 2.4m. And yet the CVA is lower, around 88k against Petronia's 112k. Divide each charge by the exposure it is charged on and the gap is stark: roughly 2.2% here against 4.6% on Petronia. CVA per unit of exposure is the cleanest single read of what the market and your model think of a name. The wrong-way correlation is at work on both deals and lifts both charges, but it bites hardest where the credit curve is already wide. Approve this one open.",
+      "prediction": {
+        "prompt": "This deal's peak PFE is about 4.0m against Petronia's 2.4m last round, yet its CVA is the lower of the two. What is the cleanest way to compare the credit risk of the two names?",
+        "options": [
+          "By the CVA alone: the smaller charge means the smaller risk, whatever the exposure",
+          "By CVA per unit of exposure, which is roughly 2.2% here against 4.6% on Petronia",
+          "They cannot be compared, because rates moved between the two rounds"
+        ],
+        "correct_index": 1,
+        "explanation": "CVA scales with both the size of the exposure and the counterparty's default probability, so the raw charge mixes the two together. Dividing by peak PFE strips out the size and leaves the credit view: this name carries less than half the charge per unit of exposure, on a larger trade. That ratio, not the headline number, tells you which counterparty the model is worried about."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 5000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "PETR",
+      "coaching": "Petronia has failed in the same move that made its swap most valuable to you. This is what wrong-way risk costs when it is left unsecured: the exposure was not merely large at the moment of default, it was large because of the moment of default. Collateral is the only defence that works here, because it is collected continuously as the exposure builds rather than claimed after the counterparty is gone."
+    }
+  ]
+}

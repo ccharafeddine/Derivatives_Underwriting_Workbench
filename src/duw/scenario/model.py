@@ -71,6 +71,13 @@ class SimSettings:
     kappa_rate: float = 0.10
     kappa_credit: float = 0.30
     credit_vol: float = 0.50
+    #: Whether each deal also reports DV01 / CS01 / FX delta. Off by default
+    #: because finite-difference sensitivities re-run the whole pipeline once per
+    #: bumped risk factor (see :func:`~duw.risk.sensitivities.compute_sensitivities`),
+    #: so a scenario that asks for them costs roughly four runs per deal instead
+    #: of one. Only the stage that teaches sensitivities turns this on, and it
+    #: pairs the flag with a smaller ``n_paths`` to stay responsive.
+    compute_sensitivities: bool = False
 
 
 @dataclass(frozen=True)
@@ -147,11 +154,19 @@ class ScenarioCounterparty:
     scenario file is self-contained and shareable. ``credit_path`` gives the
     idiosyncratic credit state per round (rounds without an entry keep the base
     credit). ``recovery_rate`` is used when the counterparty defaults.
+
+    ``credit_limit`` is the limit a credit committee has approved for this name.
+    When set it overrides whatever limit the learner picks, which is what makes a
+    limit teachable at all: on a real desk the underwriter works *inside* a limit
+    somebody else granted, so a scenario that lets the learner raise their own
+    limit to clear a breach teaches nothing. Leave it ``None`` for the
+    learner-chosen limit used by the introductory scenarios.
     """
 
     counterparty: Counterparty
     recovery_rate: float = 0.4
     credit_path: tuple[CreditState, ...] = ()
+    credit_limit: float | None = None
 
     @property
     def counterparty_id(self) -> str:
@@ -174,6 +189,37 @@ class MarketRound:
 
 
 @dataclass(frozen=True)
+class Prediction:
+    """A predict-then-reveal question asked before the consequences are shown.
+
+    Active recall beats being told: in guided mode the learner commits to an
+    answer about what the numbers will do *before* the analytics are revealed,
+    which turns a passive read of the consequence panel into a checked belief.
+    ``options`` are the choices in display order and ``correct_index`` indexes
+    into it; ``explanation`` is shown once an answer is given, whether right or
+    wrong.
+    """
+
+    prompt: str
+    options: tuple[str, ...]
+    correct_index: int
+    explanation: str = ""
+
+    def __post_init__(self) -> None:
+        if len(self.options) < 2:
+            raise ValueError("a prediction needs at least two options")
+        if not 0 <= self.correct_index < len(self.options):
+            raise ValueError(
+                f"correct_index {self.correct_index} out of range for "
+                f"{len(self.options)} options"
+            )
+
+    def is_correct(self, index: int) -> bool:
+        """Whether the option at ``index`` is the correct answer."""
+        return index == self.correct_index
+
+
+@dataclass(frozen=True)
 class DealArrival:
     """A proposed trade arriving in a given round for the learner to assess.
 
@@ -182,13 +228,16 @@ class DealArrival:
     the model-author's ideal :class:`Decision` for this deal; the guided mode can
     apply it for the learner to follow along, and the run of all recommended
     decisions defines the "best play" benchmark the learner is scored against.
-    Both are absent on a plain (non-tutorial) deal.
+    ``prediction`` is an optional predict-then-reveal question gating the
+    consequence panel in guided mode. All three are absent on a plain
+    (non-tutorial) deal.
     """
 
     round: int
     trade: Trade
     coaching: str = ""
     recommended: Decision | None = None
+    prediction: Prediction | None = None
 
     @property
     def trade_id(self) -> str:
@@ -269,6 +318,21 @@ class DecisionOutcome:
     The headline analytics are the same numbers the underwriting memo reports,
     lifted from the pipeline's ``AnalysisResults`` for the deal's netting set
     (existing book plus the proposed trade).
+
+    The trailing fields carry the *evidence behind* those headlines so the
+    simulator can show the learner what an underwriter actually reads before
+    deciding, rather than asserting who is risky: the counterparty's assessed
+    credit (``internal_grade`` through ``cds_spread_5y``), the shape of the
+    exposure over time (``time_grid`` / ``ee`` / ``pfe_95`` /
+    ``ee_collateralized``), and how much of the exposure this trade *added* to an
+    existing book (``existing_peak_pfe`` / ``incremental_peak_pfe`` /
+    ``headroom``). All default to empty so an outcome can still be built without
+    them; the engine populates them from the same pipeline run, at no extra cost.
+
+    The collateral-mechanics and funding fields come from that same run and are
+    likewise free. The sensitivities are the one exception: they cost extra
+    pipeline runs and stay ``None`` unless the scenario opts in via
+    :attr:`SimSettings.compute_sensitivities`.
     """
 
     round: int
@@ -285,6 +349,44 @@ class DecisionOutcome:
     bcva: float
     limit_utilization: float
     limit_breach: bool
+    # -- counterparty credit evidence (Step 2 of the pipeline) --------------- #
+    internal_grade: str | None = None
+    merton_pd: float | None = None
+    distance_to_default: float | None = None
+    altman_z: float | None = None
+    altman_zone: str | None = None
+    #: CDS 5-year par spread for the counterparty's issuer this round, decimal.
+    cds_spread_5y: float | None = None
+    # -- exposure shape (Steps 6-7) ----------------------------------------- #
+    time_grid: tuple[float, ...] = ()
+    ee: tuple[float, ...] = ()
+    pfe_95: tuple[float, ...] = ()
+    ee_collateralized: tuple[float, ...] = ()
+    # -- netting / limit detail (Step 9) ------------------------------------ #
+    existing_peak_pfe: float = float("nan")
+    incremental_peak_pfe: float = float("nan")
+    headroom: float = float("nan")
+    # -- collateral mechanics (Step 7) -------------------------------------- #
+    #: Peak PFE before the CSA is applied, kept alongside the collateralized
+    #: figure so the learner can read the *benefit* of the terms they set rather
+    #: than only the residual. Equal to ``peak_pfe`` when no CSA is in force.
+    uncollateralized_peak_pfe: float = float("nan")
+    #: Margin period of risk actually applied, in business days. Surfaced because
+    #: it is the one CSA term whose effect is invisible in the headline exposure:
+    #: a longer MPoR leaves more of the gap uncovered even at a zero threshold.
+    mpor_days: int = 0
+    # -- funding (Step 8) ---------------------------------------------------- #
+    #: Funding valuation adjustment on the net uncollateralized exposure. Zero
+    #: when the scenario's ``funding_spread`` is zero, which is the default.
+    fva: float = float("nan")
+    # -- sensitivities (optional; see SimSettings.compute_sensitivities) ------ #
+    #: All ``None`` unless the scenario opts into sensitivities, so a stage that
+    #: does not teach them pays nothing for the fields.
+    dv01_pfe: float | None = None
+    dv01_cva: float | None = None
+    cs01_cva: float | None = None
+    fx_delta_pfe: float | None = None
+    fx_delta_cva: float | None = None
 
 
 @dataclass(frozen=True)

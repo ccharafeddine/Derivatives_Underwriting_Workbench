@@ -8,7 +8,7 @@ breakdown the learner can read to see *why* they scored what they did.
 The scoring captures the core tension of the underwriting desk:
 
 - **Doing deals earns revenue** — an origination fee/spread plus the CVA charged
-  to the client.
+  to the client for the credit risk the desk retains after collateral.
 - **Defaults destroy it** — a realized loss when a counterparty defaults on an
   under-collateralized book.
 - **Carrying exposure costs** — a per-round charge on the exposure retained after
@@ -61,7 +61,8 @@ class ScoringParams:
     - ``origination_fee_rate`` — fee earned per unit of a deal's (uncollateralized)
       peak PFE, a proxy for the spread scaled by deal size.
     - ``cva_collection_rate`` — fraction of the charged CVA actually booked as
-      revenue (``1.0`` == the client pays the full CVA).
+      revenue (``1.0`` == the client pays the full CVA **on the credit risk the
+      desk actually retains**; see :meth:`Scorer._cva_collected`).
     - ``collateral_concession_rate`` — spread conceded per unit of exposure
       collateralized away (``peak_pfe`` minus ``collateralized_peak_pfe``); this
       is the competitiveness cost of demanding collateral.
@@ -191,7 +192,7 @@ class Scorer:
                 continue
             acc = bucket(outcome.round)
             acc.revenue += self._deal_revenue(outcome)
-            acc.cva_collected += p.cva_collection_rate * outcome.cva
+            acc.cva_collected += self._cva_collected(outcome)
             acc.exposure_cost += p.exposure_cost_rate * _retained(outcome)
             retained_exposure_total += _retained(outcome)
             if outcome.limit_breach:
@@ -245,6 +246,29 @@ class Scorer:
         concession = p.collateral_concession_rate * collateralized_away
         return fee - concession
 
+    def _cva_collected(self, outcome: DecisionOutcome) -> float:
+        """CVA booked as revenue, charged only on the credit risk actually kept.
+
+        A client pays a credit valuation adjustment for the default risk the desk
+        takes on it. Under a tight CSA the desk takes almost none — the exposure
+        is margined away — so there is almost nothing to charge, which is why
+        collateralized business prices thinner than unsecured business does.
+
+        The scenario pipeline computes ``cva`` from the *uncollateralized*
+        exposure profile, so the charge is scaled here by the fraction of peak
+        exposure that survives collateral. An uncollateralized deal has
+        ``collateralized_peak_pfe == peak_pfe`` and therefore collects the full
+        amount; a fully margined one collects almost nothing.
+
+        Without this, blanket collateralization would be near-free insurance —
+        the desk would keep the whole credit charge while running none of the
+        credit risk — and "collateralize everything" would be a winning strategy
+        rather than the way a desk loses its clients.
+        """
+        return (
+            self.params.cva_collection_rate * outcome.cva * _retained_fraction(outcome)
+        )
+
     def _loss(self, event: DefaultOutcome) -> float:
         """Realized-loss penalty for a default, honoring a recovery override."""
         if self.params.recovery_rate is None:
@@ -256,6 +280,18 @@ class Scorer:
 def _retained(outcome: DecisionOutcome) -> float:
     """Exposure retained after collateral for an accepted deal (non-negative)."""
     return max(outcome.collateralized_peak_pfe, 0.0)
+
+
+def _retained_fraction(outcome: DecisionOutcome) -> float:
+    """Share of peak exposure left after collateral, clamped to ``[0, 1]``.
+
+    Degenerate peaks (zero, negative, or ``nan``) collect in full rather than
+    silently zeroing a deal's credit charge.
+    """
+    peak = outcome.peak_pfe
+    if not peak > 0.0:  # also catches nan
+        return 1.0
+    return min(max(_retained(outcome) / peak, 0.0), 1.0)
 
 
 def score_scenario(

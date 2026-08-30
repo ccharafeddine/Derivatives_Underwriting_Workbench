@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Funding and own credit: FVA and DVA",
+    "description": "CVA is not the only adjustment on an uncollateralized trade. A position that can only ever be an asset has to be funded, and that costs a spread — FVA. And because we can default too, the exposure the counterparty runs to us has value to us — DVA. Two clients with identical credit bring two differently-shaped deals on the same day, and every adjustment comes out different, including a funding benefit and a negative BCVA. Then a third deal changes the shape of a netting set and both adjustments move with it.",
+    "n_rounds": 2,
+    "tutorial": true,
+    "intro": "So far the only adjustment you have charged is CVA: the price of the counterparty defaulting on you. Two more sit alongside it on an uncollateralized book. FVA is funding — if a position is worth money to you, you have financed that value and your treasury charges a spread to do it. In this workbench FVA is charged on expected exposure net of expected negative exposure, which means it can come out negative: a position that leans against you funds itself and hands you a benefit. DVA is the mirror of CVA — your counterparty is exposed to you too, and the market value of your own default risk is worth something to you, which is why BCVA is CVA minus DVA. This scenario runs a wide funding spread and a wide own-credit spread so both are large enough to read, and the two deals this round come from clients with deliberately identical credit. Any difference you see is the shape of the exposure, not the name. Nobody defaults here; this stage is about pricing.",
+    "outro": "Two clients, the same credit, the same day, and almost nothing in common once you priced them. The bought swaption was pure one-way exposure: you could only ever be owed, so there was no negative exposure to net against, funding was a straight cost, and DVA was exactly zero because your own default risk had nothing to attach to. The par swap leaned the other way — on this downward-sloping curve a payer swap is expected to be out of the money more often than in it — so its expected negative exposure exceeded its expected exposure. That flipped FVA into a funding benefit and pushed DVA above CVA, leaving BCVA negative: on that trade your own credit risk was worth more than the client's. Then adding the same swap to the swaption's netting set pulled the option's one-way profile back towards two-sided, and both adjustments moved with it. Size is not what prices an uncollateralized trade. Shape is.",
+    "learning_objectives": [
+      "Read FVA as the funding charge on expected exposure net of expected negative exposure.",
+      "See why a bought option, which can only be an asset, is the most expensive shape to fund.",
+      "See FVA come out negative when a position leans against you and funds itself.",
+      "Read DVA as the market value of our own default risk, and BCVA as CVA net of it — including when BCVA is negative.",
+      "Attribute a difference in adjustments to the shape of the profile rather than to the counterparty."
+    ]
+  },
+  "settings": {
+    "seed": 5581,
+    "n_paths": 600,
+    "n_steps": 6,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.015,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0125,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5,
+    "compute_sensitivities": false
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "FVA-OPT",
+        "name": "Halden Life Assurance",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 9800.0,
+          "total_liabilities": 8300.0,
+          "current_assets": 3900.0,
+          "current_liabilities": 3100.0,
+          "retained_earnings": 900.0,
+          "ebit": 620.0,
+          "sales": 4100.0,
+          "market_equity": 2100.0,
+          "equity_volatility": 0.32,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 9000000.0,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "FVA-SWP",
+        "name": "Merrow Mutual Assurance",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 9800.0,
+          "total_liabilities": 8300.0,
+          "current_assets": 3900.0,
+          "current_liabilities": 3100.0,
+          "retained_earnings": 900.0,
+          "ebit": 620.0,
+          "sales": 4100.0,
+          "market_equity": 2100.0,
+          "equity_volatility": 0.32,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 5000000.0,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "Swaption",
+        "trade_id": "F1-HALDEN-SWAPTION",
+        "counterparty_id": "FVA-OPT",
+        "notional": 40000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2027-06-30",
+        "strike": 0.043,
+        "direction": "payer",
+        "underlying_tenor_years": 5.0,
+        "volatility": 0.22,
+        "underlying_frequency": "annual",
+        "bought": true
+      },
+      "coaching": "Halden Life sells you a two-year payer swaption on a five-year swap, forty million notional. You are the buyer, so you pay a premium up front and from then on the position can only ever be worth something to you — an option you own is an asset or it is nothing, never a liability. Watch what that one-sidedness does to the whole adjustment stack. Expected exposure is positive at every date and there is no expected negative exposure at all, and three things follow from that. CVA is charged on the full profile. FVA is charged on the full profile too, because funding is levied on exposure net of negative exposure and here there is nothing to net. And DVA comes out at exactly zero, because DVA is the value of your own default risk to you and it can only be worth something when the counterparty is exposed to you — which on an option you own, they never are. Note the FVA figure and hold it in mind: the very next client has the same credit and a completely different answer.",
+      "prediction": {
+        "prompt": "You are buying an option, so the position can only ever be an asset to you. What will that do to DVA and FVA?",
+        "options": [
+          "DVA will be large and FVA small, because you paid the premium away up front",
+          "DVA will be zero and FVA will be a straight cost, because there is no exposure running the other way to offset either one",
+          "Both will be near zero, because an option is priced by Black's formula and carries no valuation adjustments"
+        ],
+        "correct_index": 1,
+        "explanation": "A bought option gives a one-sided profile: expected exposure is positive at every date and expected negative exposure is zero. DVA is the market value of your own default risk, which only has value when your counterparty is exposed to you — on a position they can never be in the money on, there is nothing for it to attach to, so it is exactly zero and BCVA equals CVA. FVA runs the other way: it is charged on expected exposure net of expected negative exposure, and with nothing to net against, the entire profile has to be funded. One-way positions are the most expensive to carry uncollateralized, and this is the arithmetic of why."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 9000000.0
+      }
+    },
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "F2-MERROW-IRS",
+        "counterparty_id": "FVA-SWP",
+        "notional": 85000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Merrow Mutual is Halden's twin: check the dossier and you will find the same balance sheet, the same issuer curve, the same distance-to-default and the same PD. It wants a five-year payer swap at the par rate, sized so the peak PFE lands close to the swaption's. Same credit, same exposure size — so anything that differs is shape. And the shape is the opposite: a par swap is two-sided, and on this curve, where zero rates fall from 4.75% at the short end to 4.22% at ten years, a payer swap is expected to be out of the money more often than in it. Expected negative exposure therefore exceeds expected exposure. Read the consequences carefully, because two signs flip. FVA goes negative — the position funds itself and hands you a benefit rather than a cost. And DVA comes out larger than CVA, which makes BCVA negative: on this trade your own default risk is worth more than the client's.",
+      "prediction": {
+        "prompt": "Identical credit to Halden and a similar peak PFE, but a two-sided swap whose expected negative exposure exceeds its expected exposure. What do FVA and BCVA do?",
+        "options": [
+          "Both stay much as they were on the swaption — the counterparty credit is identical, so the adjustments should be too",
+          "FVA turns negative into a funding benefit, and BCVA turns negative because DVA exceeds CVA",
+          "FVA roughly doubles because the notional is larger, and BCVA rises with it"
+        ],
+        "correct_index": 1,
+        "explanation": "Both adjustments are computed on the shape of the exposure profile, not on the counterparty alone. FVA is charged on expected exposure net of expected negative exposure, so when the negative side is the larger of the two the whole term changes sign and the position funds itself. DVA is the own-credit leg on that same negative exposure, so it grows for exactly the same reason, and here it overtakes CVA — leaving BCVA, which is CVA minus DVA, below zero. Identical credit, opposite answer: the profile priced the trade."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "F3-HALDEN-IRS",
+        "counterparty_id": "FVA-OPT",
+        "notional": 85000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Now Halden asks for the same par payer swap Merrow did, into the same master agreement as the swaption you already hold. This is the two shapes combined in one netting set, and it is worth pausing on what that means. The option floors your position at zero: rates rise and both legs gain, rates fall and the option simply expires while the swap loses. So the netting set's profile is no longer the one-way asset it was last round; there are now paths where Halden is in the money on you. Both adjustments follow. DVA leaves zero, because your own default risk finally has exposure to attach to. And FVA does not merely shrink — it crosses over, from the funding cost it was last round to a funding benefit, because the negative exposure the swap contributes now outweighs the positive exposure the option does. Nothing about Halden's credit changed between these two rounds. You changed the shape of what you hold.",
+      "prediction": {
+        "prompt": "Adding a par payer swap to a netting set that currently holds only a bought payer swaption. What happens to DVA?",
+        "options": [
+          "It rises off zero, because the swap creates paths where the counterparty is in the money on you for own-credit risk to attach to",
+          "It stays at zero, because a bought option can never be a liability and that fixes the netting set's sign",
+          "It falls below zero, because DVA is a benefit and benefits are recorded negative"
+        ],
+        "correct_index": 0,
+        "explanation": "Adjustments are computed on the netting set's profile, not trade by trade. The option contributes only positive value, but the swap can be worth less than nothing to you, and on the paths where it is the net mark-to-market goes negative — that is expected negative exposure, and it is exactly what DVA is charged on. So DVA lifts off zero, and FVA, which nets that same negative exposure against the funding cost, falls. The counterparty is unchanged; only the shape of what you are holding moved."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 9000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

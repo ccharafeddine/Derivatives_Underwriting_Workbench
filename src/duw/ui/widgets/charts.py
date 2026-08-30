@@ -358,6 +358,70 @@ def simulator_consequence_figure(
     return fig
 
 
+def simulator_profile_figure(
+    time_grid: tuple[float, ...],
+    ee: tuple[float, ...],
+    pfe_95: tuple[float, ...],
+    ee_collateralized: tuple[float, ...] = (),
+    limit: float | None = None,
+) -> go.Figure:
+    """The simulator deal's exposure over time, with collateral and the limit.
+
+    Two bars say how big the risk is; this says *when* it arrives and what shape
+    it has, which is what a learner needs to see to understand why a trade that
+    is harmless today is dangerous in eight months. The collateralized expected
+    exposure is overlaid so the effect of the chosen CSA is visible as the gap
+    between the curves rather than as a single number, and the limit is drawn as
+    the line the PFE must stay under.
+    """
+    if not time_grid or not pfe_95:
+        return _placeholder("Adjust the deal to preview its exposure.")
+    x = list(time_grid)
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=list(pfe_95),
+            name="PFE 95%",
+            mode="lines",
+            line=dict(color=_PFE95, width=2),
+            fill="tozeroy",
+            fillcolor="rgba(255,127,14,0.10)",
+        )
+    )
+    if ee:
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=list(ee),
+                name="EE (uncollateralized)",
+                mode="lines",
+                line=dict(color=_EE, width=2.5),
+            )
+        )
+    # Only worth drawing when collateral actually bites; an open CSA reproduces
+    # the uncollateralized curve exactly and the duplicate line reads as noise.
+    if ee_collateralized and ee and list(ee_collateralized) != list(ee):
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=list(ee_collateralized),
+                name="EE after collateral",
+                mode="lines",
+                line=dict(color=_COLLAT, width=2.5, dash="dot"),
+            )
+        )
+    if limit is not None and not math.isnan(limit):
+        breach = max(pfe_95) > limit
+        fig.add_hline(
+            y=limit,
+            line=dict(color=_BREACH if breach else _REF_LINE, width=2, dash="dash"),
+            annotation_text=f"Limit {limit:,.0f}",
+            annotation_position="top left",
+        )
+    return _base_layout(fig, "Exposure over the year ahead")
+
+
 def cva_figure(cva: CVAResult | None) -> go.Figure:
     """Per-interval CVA contributions over time, titled with the totals."""
     if cva is None or not cva.time_grid:

@@ -125,7 +125,7 @@
         "frequency": "annual",
         "exchange_notional": true
       },
-      "coaching": "Zephyr Bank stays healthy and never defaults here. Charge the CVA and approve this CrossCurrencySwap open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "coaching": "Zephyr Bank wants a fixed-for-fixed cross-currency swap: you receive 4.3% on twenty million dollars and pay 3.1% on the euro equivalent, with the notionals exchanged at maturity. That last clause is what makes this product different from everything before it. On a single-currency swap only the net coupon differential is ever at risk, and a five-year swap of this size typically peaks around 5% of notional. Here the whole principal is re-exchanged at the end at a rate fixed today, so the entire twenty million is exposed to five years of currency movement — and the peak PFE lands near 22% of notional, roughly four times what the same-sized interest rate swap would produce. Zephyr is a sound bank that survives the scenario, so the decision is straightforward. Understanding where that multiple came from is the point of the round.",
       "recommended": {
         "action": "approve",
         "require_collateral": false,
@@ -134,6 +134,16 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 6500000.0
+      },
+      "prediction": {
+        "prompt": "Why does this cross-currency swap generate several times the peak PFE of a single-currency swap of the same notional and maturity?",
+        "options": [
+          "Because the notionals are exchanged at maturity, putting the whole principal at risk to the FX move rather than only the coupon differential",
+          "Because euro interest rates are lower than dollar rates, so the leg you pay is cheaper",
+          "Because cross-currency swaps are longer dated than interest rate swaps by convention"
+        ],
+        "correct_index": 0,
+        "explanation": "On a vanilla swap the notional is purely a scaling factor: it is never exchanged, and only the difference between the two coupon streams can be owed. A fixed-for-fixed cross-currency swap actually swaps the principals back at maturity at a rate agreed today, so the full amount is exposed to however far the exchange rate has travelled by then. That single clause, not the rate differential and not the tenor, is what multiplies the exposure."
       }
     },
     {
@@ -154,7 +164,7 @@
         "frequency": "annual",
         "exchange_notional": true
       },
-      "coaching": "Lumen Trust stays healthy and never defaults here. Charge the CVA and approve this CrossCurrencySwap open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "coaching": "Lumen Trust wants the same structure at sixteen million, and by now rates have risen 100bp and the euro has strengthened 6%. This is the only product in the campaign whose exposure is driven by three things at once: the dollar curve discounting one leg, the euro curve discounting the other, and the FX rate converting between them. A move in any of the three reprices the trade, which is why the sensitivity report on a cross-currency book has to show a DV01 in each currency alongside the FX delta rather than one number. Lumen is sound and survives; approve it open and charge the credit.",
       "recommended": {
         "action": "approve",
         "require_collateral": false,
@@ -163,6 +173,16 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 4000000.0
+      },
+      "prediction": {
+        "prompt": "Which risk factors move the mark-to-market of this cross-currency swap?",
+        "options": [
+          "The dollar curve only, since the trade and the netting set are reported in dollars",
+          "The dollar curve, the euro curve and the EURUSD rate — each leg is discounted on its own currency's curve and then converted at spot",
+          "The EURUSD rate only, since the two fixed rates are agreed at inception and cannot change"
+        ],
+        "correct_index": 1,
+        "explanation": "Each leg is valued on the curve of its own currency, so both curves matter and they can move independently. The euro leg's value then has to be converted into dollars to be netted against the dollar leg, so spot matters too — and it matters most at maturity, where the principals are re-exchanged. Fixing the two coupon rates at inception fixes the cash flows, not their present value."
       }
     }
   ],
