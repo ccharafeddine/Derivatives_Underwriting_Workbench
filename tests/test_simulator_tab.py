@@ -309,3 +309,61 @@ def test_a_commit_during_a_preview_is_queued_not_dropped(qapp) -> None:
     # Advancing opened the next deal, which starts its own preview: let it finish
     # so the tab is not collected with a worker thread still running.
     _wait_idle(tab)
+
+
+def test_every_decision_control_is_disabled_while_a_run_is_in_flight(qapp) -> None:
+    # The MPoR dial was added to the form but left out of the enable/disable
+    # list, so it stayed live while every control beside it greyed out.
+    tab = SimulatorTab()
+    tab.load_default()
+    _wait_idle(tab)
+    controls = (
+        tab.action_combo,
+        tab.collateral_check,
+        tab.threshold_spin,
+        tab.mta_spin,
+        tab.im_spin,
+        tab.mpor_spin,
+        tab.limit_spin,
+        tab.commit_btn,
+    )
+    assert all(c.isEnabled() for c in controls)
+    tab._request_preview()
+    assert tab.is_busy()
+    assert not any(c.isEnabled() for c in controls), "a control stayed live mid-run"
+    _wait_idle(tab)
+    assert all(c.isEnabled() for c in controls)
+
+
+def test_loading_a_new_scenario_discards_work_queued_against_the_old_one(
+    qapp,
+) -> None:
+    """A queued commit must not be applied to whatever is loaded next.
+
+    Committing leaves a run queued; the scenario-loading controls stay enabled
+    meanwhile, so a learner can switch stages before it fires. Left alone the
+    queued commit ran against the new scenario with an empty decision set and
+    skipped its first deal.
+    """
+    tab = SimulatorTab()
+    tab.load_default()
+    _wait_idle(tab)
+    tab.set_candidate(_approve(collateral=False))
+    tab._request_preview()
+    assert tab.is_busy()
+    tab._on_commit()
+    assert tab._commit_pending
+
+    tab.load_bundled("steady_book")
+    # The queued *commit* is dropped. A queued preview may legitimately be set
+    # again straight away — that is the new scenario asking for its own first
+    # preview, which is exactly what should happen.
+    assert not tab._commit_pending
+    _wait_idle(tab)
+
+    # Still on the new scenario's first deal, nothing committed for it.
+    step = tab._current_step()
+    assert step is not None and step.kind == "decision"
+    assert step.round == 0
+    assert tab._committed == {}
+    assert tab.score_result is None

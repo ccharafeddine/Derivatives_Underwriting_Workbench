@@ -282,6 +282,10 @@ class SimulatorTab(QWidget):
         self._run_mode = ""
         self._preview_pending = False
         self._commit_pending = False
+        #: Bumped on each scenario load so a run that lands after the learner
+        #: has moved on is discarded rather than applied to the new scenario.
+        self._run_gen = 0
+        self._active_run_gen = 0
 
         self._build_ui()
         self.show_campaign()
@@ -1063,6 +1067,13 @@ class SimulatorTab(QWidget):
         self._predictions = {}
         self._revealed = set()
         self._recorded = False
+        # Anything queued against the outgoing scenario is meaningless now, and
+        # a run still in flight must not be applied to this one: it would commit
+        # an empty decision set and skip the first deal. The generation token is
+        # bumped so a late result is discarded, mirroring the benchmark below.
+        self._preview_pending = False
+        self._commit_pending = False
+        self._run_gen += 1
         self.stage_outcome.setVisible(False)
         self.skills_group.setVisible(False)
         # A scenario flagged as a tutorial turns guided mode on automatically.
@@ -1527,6 +1538,7 @@ class SimulatorTab(QWidget):
     def _start_run(self, decisions: dict[str, Decision], mode: str) -> None:
         assert self._scenario is not None
         self._run_mode = mode
+        self._active_run_gen = self._run_gen
         self._worker = ScenarioRunWorker(self._scenario, decisions)
         self._thread = create_scenario_thread(self._worker)
         self._worker.finished.connect(self._on_run_finished)
@@ -1536,6 +1548,11 @@ class SimulatorTab(QWidget):
         self._thread.start()
 
     def _on_run_finished(self, result: ScenarioResult) -> None:
+        if self._active_run_gen != self._run_gen:
+            # Started against a scenario the learner has since left. Applying it
+            # would advance the wrong play; drop it.
+            self.runFinished.emit("stale")
+            return
         mode = self._run_mode
         if mode == "preview":
             self._apply_preview(result)
@@ -1965,6 +1982,7 @@ class SimulatorTab(QWidget):
             self.threshold_spin,
             self.mta_spin,
             self.im_spin,
+            self.mpor_spin,
             self.limit_spin,
             self.commit_btn,
         ):
