@@ -394,3 +394,16 @@ def test_decision_action_enum_is_reachable_from_the_controls(qapp, tmp_path) -> 
     _settled(tab)
     tab.action_combo.setCurrentIndex(1)
     assert tab._current_action() == DecisionAction.CONDITION
+
+
+def test_campaign_blurb_states_the_real_stage_count(qapp, tmp_path) -> None:
+    """The header count must come from the campaign, not from prose.
+
+    It read "Thirteen stages" for a while after the campaign grew to 17, which
+    the stage list right underneath it flatly contradicted.
+    """
+    tab = SimulatorTab(progress_store=ProgressStore(tmp_path / "campaign.json"))
+    tab.show_campaign()
+    blurb = tab.framing.text()
+    assert f"{len(CAMPAIGN)} stages" in blurb
+    assert "Thirteen" not in blurb

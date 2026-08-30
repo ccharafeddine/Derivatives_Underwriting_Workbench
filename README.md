@@ -228,7 +228,20 @@ scores you against the scenario's own best-play benchmark, grades you on four
 underwriting skills, and reads back round by round where you gained or lost
 ground.
 
-![Simulator tab](docs/images/simulator.png)
+The campaign, with the stages cleared so far and the one open next:
+
+![Simulator campaign](docs/images/simulator-campaign.png)
+
+A guided stage mid-round: the coach explains the deal, the prediction has been
+answered, and the consequences are revealed alongside the credit dossier.
+
+![Simulator guided decision](docs/images/simulator.png)
+
+The collateral stage, showing the CSA terms as live dials — move the threshold,
+initial margin or margin period of risk and the exposure numbers and profile
+respond before you commit.
+
+![Simulator collateral terms](docs/images/simulator-collateral.png)
 
 ---
 

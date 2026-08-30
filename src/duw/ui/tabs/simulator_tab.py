@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -101,6 +102,12 @@ PREDICTION_SKIPPED = -1
 #: learner moves the dial.
 DEFAULT_MPOR_DAYS = 10
 
+#: Tallest the scenario framing blurb may grow before it starts scrolling. Set
+#: so the deal, its controls and the consequence panel stay usable in a window
+#: around a thousand pixels tall, which is the size the README screenshots use
+#: and a realistic laptop.
+FRAMING_MAX_HEIGHT = 210
+
 _ACTION_LABELS: tuple[tuple[str, DecisionAction], ...] = (
     ("Approve", DecisionAction.APPROVE),
     ("Condition (collateralize)", DecisionAction.CONDITION),
@@ -147,6 +154,22 @@ def _signed(x: float | None, decimals: int = 1) -> str:
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "—"
     return f"{x:+,.{decimals}f}"
+
+
+def _scrolled(inner: QWidget) -> QScrollArea:
+    """Wrap ``inner`` in a vertically-scrolling, frameless area.
+
+    Keeps a column's widgets at their natural size when the window is too short
+    to show them all, instead of letting the layout compress them into slivers.
+    """
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    # Vertical scrolling is the point, but the horizontal bar stays available:
+    # clipping content outright is worse than letting the learner reach it.
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    area.setWidget(inner)
+    return area
 
 
 def _collateral_rows(
@@ -267,10 +290,26 @@ class SimulatorTab(QWidget):
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
 
+        # The framing blurb is long on some stages (title, description, learning
+        # objectives and the guided intro). Left to size itself it takes whatever
+        # height it wants and starves the decision controls below — at a 1000px
+        # window the CSA dials collapsed to unreadable slivers. So it lives in a
+        # scroll area capped at FRAMING_MAX_HEIGHT: short blurbs still render in
+        # full, long ones scroll, and the deal below always gets its room.
         self.framing = QLabel()
         self.framing.setWordWrap(True)
         self.framing.setTextFormat(Qt.TextFormat.RichText)
-        outer.addWidget(self.framing)
+        self.framing.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        self._framing_scroll = QScrollArea()
+        self._framing_scroll.setWidgetResizable(True)
+        self._framing_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._framing_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._framing_scroll.setWidget(self.framing)
+        outer.addWidget(self._framing_scroll)
 
         self.tutorial_check = QCheckBox(
             "Guided (tutorial) mode: explain each step and score me against best play"
@@ -293,7 +332,28 @@ class SimulatorTab(QWidget):
         splitter.addWidget(self.stack)
         splitter.addWidget(self._build_scoreboard())
         splitter.setSizes([900, 320])
-        outer.addWidget(splitter)
+        # Stretch of 1: every pixel not needed by the framing blurb and the mode
+        # checkbox goes to the deal, rather than being shared with the blurb.
+        outer.addWidget(splitter, 1)
+
+    def _set_framing(self, html: str) -> None:
+        """Set the framing blurb and size its scroll area to fit, up to the cap.
+
+        Sizing to content keeps a short blurb (the campaign page's two lines)
+        from reserving the full cap's worth of blank space, while a long one
+        stops at :data:`FRAMING_MAX_HEIGHT` and scrolls.
+        """
+        self.framing.setText(html)
+        width = self._framing_scroll.viewport().width() or self.width() or 900
+        needed = self.framing.heightForWidth(width)
+        if needed <= 0:
+            needed = self.framing.sizeHint().height()
+        self._framing_scroll.setMaximumHeight(min(needed + 8, FRAMING_MAX_HEIGHT))
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        """Re-fit the framing blurb when the width changes its wrapped height."""
+        super().resizeEvent(event)
+        self._set_framing(self.framing.text())
 
     def _build_campaign_page(self) -> QWidget:
         """The stage list: what is cleared, what is open, and what comes next."""
@@ -327,7 +387,10 @@ class SimulatorTab(QWidget):
         self.play_stage_btn.clicked.connect(self.play_selected_stage)
         detail.addWidget(self.play_stage_btn)
         body.addWidget(detail_holder)
-        body.setSizes([340, 520])
+        # Wide enough for the longest stage title plus its medal annotation
+        # ("17. Capstone: the crunch — Gold, 100% of best play"); at 340 the
+        # annotation was clipped and the list grew a horizontal scrollbar.
+        body.setSizes([430, 430])
         layout.addWidget(body, 1)
 
         controls = QHBoxLayout()
@@ -498,6 +561,8 @@ class SimulatorTab(QWidget):
         self.prediction_buttons = QButtonGroup(self)
         self.prediction_buttons.setExclusive(True)
         self._prediction_options: list[QRadioButton] = []
+        #: Row widgets holding each radio button and its wrapping label.
+        self._prediction_rows: list[QWidget] = []
         self._prediction_holder = QWidget()
         self._prediction_holder_layout = QVBoxLayout(self._prediction_holder)
         self._prediction_holder_layout.setContentsMargins(0, 0, 0, 0)
@@ -524,14 +589,24 @@ class SimulatorTab(QWidget):
         self.consequence_table = MetricsTable()
         cons_layout.addWidget(self.consequence_table)
         self.consequence_view = PlotlyView()
+        # The profile is the point of the panel — how the exposure is shaped
+        # over time, not just how big it peaks — so it keeps a legible height
+        # and the column scrolls rather than flattening it to a strip.
+        self.consequence_view.setMinimumHeight(260)
         cons_layout.addWidget(self.consequence_view, 1)
         self.recommendation_label = QLabel("")
         self.recommendation_label.setWordWrap(True)
         cons_layout.addWidget(self.recommendation_label)
 
-        page.addWidget(controls)
-        page.addWidget(consequences)
-        page.setSizes([380, 560])
+        # Both columns scroll, as the prompt and summary pages already do. The
+        # decision page carries the most content of any page — coach, deal,
+        # credit dossier and five decision controls on the left; prediction,
+        # a dozen consequence rows and the exposure profile on the right — and
+        # without scrolling a window around a thousand pixels tall squeezed the
+        # CSA dials down to unreadable slivers and flattened the chart.
+        page.addWidget(_scrolled(controls))
+        page.addWidget(_scrolled(consequences))
+        page.setSizes([400, 560])
         return page
 
     def _build_default_page(self) -> QWidget:
@@ -671,6 +746,10 @@ class SimulatorTab(QWidget):
 
     def _build_scoreboard(self) -> QWidget:
         box = QGroupBox("Where you stand")
+        # Without a floor the splitter squeezed this column until "Risk-adjusted
+        # score" and "CVA collected" wrapped into ellipses, which is the one
+        # place the learner reads how they are doing.
+        box.setMinimumWidth(260)
         layout = QVBoxLayout(box)
         self.round_label = QLabel("No scenario loaded.")
         self.round_label.setWordWrap(True)
@@ -716,12 +795,14 @@ class SimulatorTab(QWidget):
         """Show the stage list, refreshed from the current progress."""
         self._render_campaign()
         self.stack.setCurrentWidget(self._campaign_page)
-        self.framing.setText(
+        # The count comes from the campaign itself: spelling it out in the copy
+        # silently goes stale the moment a stage is added.
+        self._set_framing(
             "<h3>Underwriting campaign</h3>"
-            "<p>Thirteen stages, in teaching order. Each one is a scripted book "
-            "you underwrite deal by deal, and each opens once you have cleared "
-            "the one before it. Start at the top: the first stage is a guided "
-            "tutorial.</p>"
+            f"<p>{len(self.campaign)} stages, in teaching order. Each one is a "
+            "scripted book you underwrite deal by deal, and each opens once you "
+            "have cleared the one before it. Start at the top: the first stage "
+            "is a guided tutorial.</p>"
         )
 
     def _render_campaign(self) -> None:
@@ -1047,7 +1128,7 @@ class SimulatorTab(QWidget):
             try:
                 self.load_from_path(path)
             except Exception as exc:  # noqa: BLE001 - surface load errors gently
-                self.framing.setText(f"Could not load scenario: {exc}")
+                self._set_framing(f"Could not load scenario: {exc}")
 
     @staticmethod
     def _build_steps(scenario: Scenario) -> tuple[PlayStep, ...]:
@@ -1136,8 +1217,10 @@ class SimulatorTab(QWidget):
         """Show the deal's prediction question, or nothing if it has none."""
         for button in self._prediction_options:
             self.prediction_buttons.removeButton(button)
-            button.setParent(None)
+        for row in self._prediction_rows:
+            row.setParent(None)
         self._prediction_options = []
+        self._prediction_rows = []
         self.prediction_feedback.setVisible(False)
         self.prediction_feedback.setText("")
 
@@ -1148,11 +1231,27 @@ class SimulatorTab(QWidget):
         self.prediction_group.setVisible(True)
         self.prediction_prompt.setText(prediction.prompt)
         for i, option in enumerate(prediction.options):
-            button = QRadioButton(option)
+            # A QRadioButton will not wrap its own label, and these options run
+            # to a full sentence: left on the button the text set a minimum
+            # width that dragged the whole consequence column wider than the
+            # window and pushed the table's VALUE column out of sight. So the
+            # button carries no text and a wrapping label sits beside it.
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            button = QRadioButton()
             button.setEnabled(True)
+            row_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignTop)
+            label = QLabel(option)
+            label.setWordWrap(True)
+            # Clicking the text should select the option, as it would on a
+            # normal radio button.
+            label.mousePressEvent = lambda _e, b=button: b.setChecked(True)
+            row_layout.addWidget(label, 1)
             self.prediction_buttons.addButton(button, i)
-            self._prediction_holder_layout.addWidget(button)
+            self._prediction_holder_layout.addWidget(row)
             self._prediction_options.append(button)
+            self._prediction_rows.append(row)
         answered = deal.trade_id in self._predictions
         self.answer_btn.setEnabled(not answered)
         self.skip_prediction_btn.setEnabled(not answered)
@@ -1909,7 +2008,7 @@ class SimulatorTab(QWidget):
                 f"<p><b>Campaign stage {idx} of {len(self.campaign)}</b> — "
                 f"clears at {stage.pass_ratio:.0%} of the best play</p>" + header
             )
-        self.framing.setText(
+        self._set_framing(
             header
             + f"<p>{meta.description}</p>"
             + f"<p><b>{meta.n_rounds} rounds.</b> Counterparties: {names}.</p>"
@@ -1919,7 +2018,7 @@ class SimulatorTab(QWidget):
 
     def _show_prompt(self) -> None:
         self.stack.setCurrentWidget(self._prompt_page)
-        self.framing.setText(
+        self._set_framing(
             "<h3>Underwriting simulator</h3>"
             "<p>Load a scenario to begin. The bundled sample walks through rising "
             "rates and a counterparty that deteriorates and defaults.</p>"
