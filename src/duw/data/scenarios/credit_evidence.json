@@ -1,0 +1,334 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Reading the dossier: four names, no hints",
+    "description": "Four clients, four near-identical swaps. Nobody tells you which of them is in trouble. Everything you need is in the counterparty dossier on each deal: the model grade, the Merton distance-to-default and probability of default, the Altman zone, and the CDS spread the market is charging on that name today. Two of these four will fail. Read the evidence and decide which ones you are willing to face unsecured.",
+    "n_rounds": 4,
+    "learning_objectives": [
+      "Read a counterparty dossier: model grade, Merton PD and distance-to-default, Altman zone, CDS spread.",
+      "Rank names by credit evidence rather than by the coach telling you who is weak.",
+      "Notice when the seeded agency-style rating and the model's own grade disagree, and which one is stale.",
+      "Track the CDS spread across rounds as the live signal that a name is deteriorating."
+    ]
+  },
+  "settings": {
+    "seed": 5520,
+    "n_paths": 800,
+    "n_steps": 8,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "STAL",
+        "name": "Stalwart Bank",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 12000.0,
+          "total_liabilities": 6000.0,
+          "current_assets": 6400.0,
+          "current_liabilities": 2400.0,
+          "retained_earnings": 3600.0,
+          "ebit": 2100.0,
+          "sales": 8400.0,
+          "market_equity": 9000.0,
+          "equity_volatility": 0.22,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "IRON",
+        "name": "Ironvale Steel",
+        "sector": "Materials",
+        "ticker": null,
+        "cds_issuer": "INITECH",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 2600.0,
+          "total_liabilities": 2350.0,
+          "current_assets": 780.0,
+          "current_liabilities": 980.0,
+          "retained_earnings": 60.0,
+          "ebit": 95.0,
+          "sales": 2100.0,
+          "market_equity": 380.0,
+          "equity_volatility": 0.62,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_path": [
+        {
+          "round": 2,
+          "spread_multiplier": 1.8,
+          "internal_rating": "B"
+        },
+        {
+          "round": 3,
+          "spread_multiplier": 4.0,
+          "internal_rating": "CCC"
+        }
+      ]
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "CASC",
+        "name": "Cascade Foods",
+        "sector": "Consumer Staples",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 9000.0,
+          "total_liabilities": 4200.0,
+          "current_assets": 3600.0,
+          "current_liabilities": 1600.0,
+          "retained_earnings": 3100.0,
+          "ebit": 1150.0,
+          "sales": 6800.0,
+          "market_equity": 6200.0,
+          "equity_volatility": 0.24,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "HARB",
+        "name": "Harborlight Retail",
+        "sector": "Consumer Discretionary",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 4200.0,
+          "total_liabilities": 3700.0,
+          "current_assets": 1100.0,
+          "current_liabilities": 1400.0,
+          "retained_earnings": 120.0,
+          "ebit": 150.0,
+          "sales": 3100.0,
+          "market_equity": 520.0,
+          "equity_volatility": 0.55,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_path": [
+        {
+          "round": 2,
+          "spread_multiplier": 2.5,
+          "internal_rating": "BB"
+        },
+        {
+          "round": 3,
+          "spread_multiplier": 5.0,
+          "internal_rating": "CCC"
+        }
+      ]
+    }
+  ],
+  "market_path": [
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +150bp",
+        "rate_shift_bps": 150.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 3,
+      "spec": {
+        "name": "Rates +150bp, credit wider",
+        "rate_shift_bps": 150.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 25.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CE1-STALWART",
+        "counterparty_id": "STAL",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "No one is going to tell you who is safe in this scenario. Work the dossier. Four readings matter and they are all on the Counterparty panel. Distance-to-default is how many standard deviations of asset value sit between this firm and its debt: above about 4 is comfortable, below about 2 is not. Merton PD is that distance turned into a one-year default probability. The Altman zone summarises the balance sheet: safe, grey, or distress. And the CDS spread is what the market charges today to insure this name, which is the only one of the four that updates in real time. Read all four on this client, then decide whether you want to face it unsecured.",
+      "prediction": {
+        "prompt": "Of the four credit readings on the dossier, which one will move first if this counterparty starts to deteriorate mid-scenario?",
+        "options": [
+          "The seeded internal rating, since ratings are reviewed continuously",
+          "The Altman Z-score, since it is recomputed from the balance sheet each round",
+          "The CDS spread, since it is a traded price that reprices this name daily"
+        ],
+        "correct_index": 2,
+        "explanation": "The balance sheet in this scenario is static and the seeded rating is an occasional committee opinion, so neither moves quickly. The CDS spread is a live traded price on this name's credit: when it widens round on round, that is the market repricing the default risk before anything else in the dossier catches up. Watch it."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CE2-IRONVALE",
+        "counterparty_id": "IRON",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Same trade, different client. Put this dossier next to the one you saw last round and read the gap rather than the absolute numbers. Look in particular at distance-to-default, at the one-year PD, and at what the market is charging on this name's CDS versus the bank's. Note also that the CVA on the Consequences panel is much larger here for an identically sized trade: that is the model pricing this counterparty's default risk, and it is your own analytics telling you what they think of this name.",
+      "prediction": {
+        "prompt": "This client's CVA is several times the bank's on an identically sized swap. What is that telling you?",
+        "options": [
+          "The exposure is bigger, so there is more of it to charge for",
+          "The exposure is about the same, but the probability of not being repaid is far higher",
+          "Nothing useful; CVA is a pricing convention rather than a risk signal"
+        ],
+        "correct_index": 1,
+        "explanation": "CVA is roughly LGD times the sum of expected exposure times the marginal default probability in each interval, discounted. The trade is the same size, so the expected exposure leg is broadly unchanged; what has multiplied is the default-probability leg coming off this name's survival curve. A CVA that jumps on an unchanged trade is a credit signal, not a size signal."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CE3-CASCADE",
+        "counterparty_id": "CASC",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Rates have risen 150bp, so every payer swap on your book has moved further into the money and your exposures have grown. This client is a mid-sized food producer. Its Altman zone is not pristine, which is common for a business carrying inventory and working capital, but check distance-to-default and the one-year PD before you let one weak-looking ratio decide it. A single ratio in isolation is how good business gets turned away.",
+      "prediction": {
+        "prompt": "This name's Altman zone reads grey while its distance-to-default is above 6 and its one-year PD is effectively zero. How should you weigh that?",
+        "options": [
+          "Treat the worst signal as decisive and demand collateral",
+          "Weigh them together: a strong distance-to-default and near-zero PD outrank a middling accounting ratio",
+          "Ignore the Altman Z entirely; it never carries information"
+        ],
+        "correct_index": 1,
+        "explanation": "Altman's Z is a static accounting score with known blind spots on asset-heavy and inventory-heavy businesses. Merton's distance-to-default uses the market's own view of asset value and volatility, which is more current. When they disagree, understand why they disagree rather than defaulting to the most alarming number, and check whether the CDS market shares the alarm. Here it does not."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "CE4-HARBORLIGHT",
+        "counterparty_id": "HARB",
+        "notional": 15000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "The last client of the scenario, and the one where the paperwork and the evidence disagree. The seeded internal rating on file is investment grade. The dossier is not: check distance-to-default, the one-year PD, the Altman zone, and above all what the CDS market is charging on this name today against what it charged the same name at the start. A rating is an opinion someone formed at a point in time. A spread is a price someone is paying right now.",
+      "prediction": {
+        "prompt": "The file says this counterparty is investment grade, but its CDS spread has widened sharply and its distance-to-default is under 2. Which do you underwrite to?",
+        "options": [
+          "The rating on file, because it is the institution's formal credit opinion",
+          "The market and model evidence, because the rating is a stale opinion and the spread is a live price",
+          "Neither; wait for the rating agency to act before changing your view"
+        ],
+        "correct_index": 1,
+        "explanation": "Ratings are revised in discrete steps and lag the market, often by a long way, which is exactly why a name can default while still nominally investment grade. Distance-to-default and the CDS spread both moved before the rating did. Underwrite the evidence."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "limit": 5000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 3,
+      "counterparty_id": "IRON",
+      "coaching": "Ironvale has failed. Its dossier said so from the round you first saw it: distance-to-default under 2, a one-year PD in the percents rather than the basis points, an Altman score deep in distress, and a CDS spread more than three times the bank's. None of that was hidden and none of it required a coach."
+    },
+    {
+      "round": 3,
+      "counterparty_id": "HARB",
+      "coaching": "Harborlight has failed too, still carrying an investment-grade rating on file. The rating was the one piece of the dossier that never updated. Everything that did update, the spread and the distance-to-default, had been telling you the same story for two rounds."
+    }
+  ]
+}

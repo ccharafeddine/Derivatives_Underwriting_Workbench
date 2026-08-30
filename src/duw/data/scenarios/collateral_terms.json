@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Calibrating the collateral agreement",
+    "description": "Until now collateral has been a switch: on or off. It is not. A CSA is a set of negotiated terms, and each one decides how much exposure you actually keep. Over three rounds with the same client you set the threshold, the minimum transfer amount, the initial margin and the margin period of risk, and watch the collateralized exposure move as you do. Then the client fails, and the loss lands exactly on the slice your terms left uncovered.",
+    "n_rounds": 3,
+    "tutorial": true,
+    "intro": "One client, three deals, and a collateral agreement you negotiate rather than switch on. Four terms do the work. The threshold is the amount of exposure the client never has to secure — an unsecured line you grant them. The minimum transfer amount is the smallest sum worth moving, so small changes go uncollected. Initial margin is a buffer posted up front, over and above the mark-to-market. And the margin period of risk is how many business days it takes to close out and collect after they stop paying, during which the exposure keeps moving and no collateral arrives. Watch the 'Exposure removed by the CSA' and 'Collateralized peak PFE' rows as you move each dial. Northbank Chemicals will not survive this scenario, so whatever your terms leave unsecured is what you lose.",
+    "outro": "Collateral is a dial, not a switch. A threshold is an unsecured line you granted, and at default it comes back to you as an unsecured claim worth the recovery rate. The margin period of risk is why even a zero-threshold CSA leaves a residual: exposure keeps moving during the days it takes to close out, and initial margin exists precisely to cover that gap — at a price, which is why you demand it when the gap is large rather than as a reflex. And notice what the numbers never did: peak PFE itself never moved, because the trades never changed. Every term you touched changed only how much of that exposure you were still carrying. That distinction — risk taken versus risk kept — is the whole of collateral management.",
+    "learning_objectives": [
+      "Read a CSA threshold as an unsecured line granted to the client, recoverable only from the estate.",
+      "See why a zero-threshold CSA still leaves residual exposure over the margin period of risk.",
+      "Use initial margin to cover the close-out gap that variation margin cannot reach.",
+      "Recognize that CSA terms change the exposure you keep, never the exposure the trade creates.",
+      "Understand that the terms agreed on the latest deal govern the whole netting set."
+    ]
+  },
+  "settings": {
+    "seed": 4109,
+    "n_paths": 500,
+    "n_steps": 6,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5,
+    "compute_sensitivities": false
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "CSA-CHEM",
+        "name": "Northbank Chemicals",
+        "sector": "Materials",
+        "ticker": null,
+        "cds_issuer": "INITECH",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 3400.0,
+          "total_liabilities": 2950.0,
+          "current_assets": 1050.0,
+          "current_liabilities": 1180.0,
+          "retained_earnings": 140.0,
+          "ebit": 175.0,
+          "sales": 2800.0,
+          "market_equity": 620.0,
+          "equity_volatility": 0.55,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 6000000.0,
+      "credit_path": [
+        {
+          "round": 1,
+          "spread_multiplier": 2.0,
+          "internal_rating": "B"
+        },
+        {
+          "round": 2,
+          "spread_multiplier": 3.5,
+          "internal_rating": "CCC"
+        }
+      ]
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Rates +150bp",
+        "rate_shift_bps": 150.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
+      "spec": {
+        "name": "Rates +250bp",
+        "rate_shift_bps": 250.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "C1-NORTHBANK-IRS",
+        "counterparty_id": "CSA-CHEM",
+        "notional": 15000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Northbank Chemicals, a BB chemicals producer, opens a relationship with a payer swap. You already know this name needs securing, so the question is not whether to collateralize but on what terms. Start with the tightest agreement you can write: threshold zero, no minimum transfer amount, no initial margin, and the market-standard ten-day margin period of risk. Commit that, then look carefully at the two exposure rows. Collateralized peak PFE does not go to zero. It cannot, because collateral is called against yesterday's mark and it takes ten business days to close a defaulted counterparty out — exposure keeps moving in that window and nothing arrives to cover it. That residual is gap risk, and it is the floor a variation-margin CSA can reach.",
+      "prediction": {
+        "prompt": "You are about to set a zero threshold with no initial margin. What will 'Collateralized peak PFE' show?",
+        "options": [
+          "Exactly zero — a zero threshold means every dollar of exposure is secured",
+          "A small but clearly non-zero residual, because exposure keeps moving over the ten-day margin period before collateral can be collected",
+          "The same as peak PFE, because collateral is only counted once a default happens"
+        ],
+        "correct_index": 1,
+        "explanation": "A zero threshold means the client must secure everything, but not instantaneously. Margin is called against a past mark and collected over days, so between the last good call and close-out the exposure drifts uncovered. That gap is the margin period of risk, and it is why the collateralized figure lands on a small residual rather than on zero. Initial margin exists to cover exactly this."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 6000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "C2-NORTHBANK-IRS",
+        "counterparty_id": "CSA-CHEM",
+        "notional": 15000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Rates have risen 150bp, both swaps gain, and Northbank has been downgraded to B. Now the client's treasurer pushes back: they want a three-million threshold, arguing every other dealer grants them one. Try it. Set the threshold to 3,000,000 and watch the collateralized figure jump from under a hundred thousand to essentially the entire peak PFE — the exposure on this book is still smaller than the threshold, so under those terms not one dollar of it ever gets secured. Set it back to zero and watch it collapse again. A threshold is not a formality; it is an unsecured line you are granting, and on a name heading for default you recover it only from the estate, at the recovery rate. Hold the line at zero. Since you are renegotiating anyway, this is the agreement that will govern the whole relationship.",
+      "prediction": {
+        "prompt": "The client wants a 3,000,000 threshold. If you grant it and they default with the swaps deep in your favour, what happens to that first 3,000,000 of exposure?",
+        "options": [
+          "It is still covered — a threshold only delays the collateral call, it does not waive it",
+          "You rank as an unsecured creditor for it and recover only the recovery rate, so most of it is lost",
+          "It is covered by the initial margin, which is what initial margin is for"
+        ],
+        "correct_index": 1,
+        "explanation": "A threshold is exposure the client is contractually never required to secure. At default it is simply an unsecured claim on the estate, recovered at the recovery rate — here 40 cents on the dollar, so roughly 60% of it is lost. That is the trade you make for a threshold, and it is why granting one to a deteriorating name is expensive. Initial margin does not help: it covers the close-out gap on top of the mark, not the slice you agreed to leave unsecured."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 6000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "C3-NORTHBANK-IRS",
+        "counterparty_id": "CSA-CHEM",
+        "notional": 15000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Last deal, and Northbank is now CCC and about to fail. Two dials left to understand, and this round is for experimenting with them before you commit. First drag the margin period of risk up towards twenty or thirty days: the collateralized exposure grows several times over, because a slower close-out leaves more of the move uncovered. That is what a disputed, badly-run agreement costs you. Put it back to ten, then raise initial margin to around three quarters of a million and watch the residual go to zero — initial margin is the answer to the margin period of risk, and this is the deal that proves it. But look at what it does to your revenue as well. Collateral you demand is spread you concede, and margin posted against a gap this small is expensive protection. The residual at a zero threshold and a ten-day close-out was already under a hundred thousand, and this counterparty's closeout is fully covered without it. Understand the dial; then decide whether this deal is worth paying for it. Whatever you commit governs the whole three-swap book when Northbank fails at the end of this round.",
+      "prediction": {
+        "prompt": "You keep the threshold at zero but drag the margin period of risk from 10 days to 30. What happens to collateralized peak PFE?",
+        "options": [
+          "Nothing — the margin period of risk only matters when the threshold is above zero",
+          "It rises, because a longer close-out leaves more of the exposure move uncovered by collateral",
+          "It falls, because a longer period gives the client more time to post"
+        ],
+        "correct_index": 1,
+        "explanation": "The margin period of risk is the window between the last effective margin call and close-out. Nothing is collected during it, so the longer it runs the further the exposure can drift uncovered — the residual grows with it. It is entirely independent of the threshold, which is why a zero-threshold agreement with a slow, disputed close-out is worse than it looks. Initial margin is the term that covers this gap."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 6000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 2,
+      "counterparty_id": "CSA-CHEM",
+      "coaching": "Northbank Chemicals has failed with all three swaps open and close to five million in your favour. The realized loss is whatever your final agreement left unsecured, times the loss given default. At a zero threshold the close-out is fully covered and the loss is zero. Had you granted the three-million threshold the treasurer asked for in round two, exactly that three million would have been sitting unsecured, and at a 40% recovery you would be writing off 1,800,000 of it. Had you skipped collateral altogether the loss would be near three million. The terms you negotiate while the name is merely weak are the terms you live with when it fails."
+    }
+  ]
+}

@@ -11,6 +11,13 @@ counterparty's open approved book at the round's state (via the existing
 :class:`~duw.risk.exposure.ExposureEngine`), applies the governing CSA (via the
 existing :func:`~duw.risk.collateral.apply_csa`), and records the realized loss.
 
+A scenario may additionally opt into per-deal sensitivities
+(:attr:`~duw.scenario.model.SimSettings.compute_sensitivities`), in which case
+the existing :func:`~duw.risk.sensitivities.compute_sensitivities` is called for
+the deal as well. That is off by default because it re-runs the pipeline once per
+bumped risk factor; only the stage that teaches DV01 / CS01 / FX delta turns it
+on.
+
 No scoring or P&L attribution lives here — that is a later session; this engine
 only records the raw consequences. No Qt imports; fully headless.
 
@@ -38,6 +45,7 @@ from duw.pipeline.orchestrator import RunConfig, run_pipeline
 from duw.risk.collateral import CSA, apply_csa
 from duw.risk.exposure import ExposureEngine
 from duw.risk.scenarios import apply_scenario
+from duw.risk.sensitivities import compute_sensitivities
 from duw.scenario.model import (
     CreditState,
     DealArrival,
@@ -119,7 +127,7 @@ class ScenarioEngine:
         counterparty = self._counterparty_for(cp, state)
         existing = self._book[cp.counterparty_id]
 
-        config = self._run_config(decision)
+        config = self._run_config(decision, cp)
         results = run_pipeline(
             counterparty,
             existing,
@@ -137,6 +145,7 @@ class ScenarioEngine:
         cva = results.cva
         limits = results.limits
         memo = results.memo
+        profile = results.credit_profile
         return DecisionOutcome(
             round=rnd,
             trade_id=arrival.trade_id,
@@ -158,7 +167,70 @@ class ScenarioEngine:
                 float(limits.utilization) if limits is not None else float("nan")
             ),
             limit_breach=bool(limits.breach) if limits is not None else False,
+            internal_grade=profile.internal_grade if profile is not None else None,
+            merton_pd=profile.merton_pd if profile is not None else None,
+            distance_to_default=(
+                profile.distance_to_default if profile is not None else None
+            ),
+            altman_z=profile.altman_z if profile is not None else None,
+            altman_zone=profile.altman_zone if profile is not None else None,
+            cds_spread_5y=_cds_spread_5y(snapshot, counterparty.cds_issuer),
+            time_grid=tuple(exposure.time_grid) if exposure is not None else (),
+            ee=tuple(exposure.ee) if exposure is not None else (),
+            pfe_95=tuple(exposure.pfe_95) if exposure is not None else (),
+            ee_collateralized=(
+                tuple(collateral.ee_collateralized) if collateral is not None else ()
+            ),
+            existing_peak_pfe=(
+                float(limits.current_peak_pfe) if limits is not None else float("nan")
+            ),
+            incremental_peak_pfe=(
+                float(limits.incremental_peak_pfe)
+                if limits is not None
+                else float("nan")
+            ),
+            headroom=float(limits.headroom) if limits is not None else float("nan"),
+            uncollateralized_peak_pfe=(
+                float(collateral.peak_pfe_uncollateralized)
+                if collateral is not None
+                else float("nan")
+            ),
+            mpor_days=int(collateral.mpor_days) if collateral is not None else 0,
+            fva=float(cva.fva) if cva is not None else float("nan"),
+            **self._sensitivity_fields(
+                counterparty, existing, arrival, config, snapshot
+            ),
         )
+
+    def _sensitivity_fields(
+        self,
+        counterparty: Counterparty,
+        existing: NettingSet,
+        arrival: DealArrival,
+        config: RunConfig,
+        snapshot: MarketSnapshot,
+    ) -> dict[str, float]:
+        """DV01 / CS01 / FX-delta fields for the outcome, or empty when opted out.
+
+        Sensitivities are finite differences, so each one costs another pipeline
+        run over a bumped snapshot; only a scenario that sets
+        :attr:`~duw.scenario.model.SimSettings.compute_sensitivities` pays for
+        them. The same ``config`` — and therefore the same Monte Carlo seed — is
+        reused across the bumps (common random numbers), so the difference
+        reflects the market move rather than simulation noise.
+        """
+        if not self.scenario.settings.compute_sensitivities:
+            return {}
+        sens = compute_sensitivities(
+            counterparty, existing, arrival.trade, config, snapshot
+        )
+        return {
+            "dv01_pfe": sens.dv01_pfe,
+            "dv01_cva": sens.dv01_cva,
+            "cs01_cva": sens.cs01_cva,
+            "fx_delta_pfe": sens.fx_delta_pfe,
+            "fx_delta_cva": sens.fx_delta_cva,
+        }
 
     # -- default handling -------------------------------------------------- #
     def _process_default(self, rnd: int, cp: ScenarioCounterparty) -> DefaultOutcome:
@@ -247,8 +319,15 @@ class ScenarioEngine:
             return replace(cp.counterparty, internal_rating=state.internal_rating)
         return cp.counterparty
 
-    def _run_config(self, decision: Decision) -> RunConfig:
+    def _run_config(self, decision: Decision, cp: ScenarioCounterparty) -> RunConfig:
+        """Run configuration for one deal.
+
+        A counterparty carrying a committee-approved ``credit_limit`` is checked
+        against that limit rather than the one the learner set, so a breach is a
+        real consequence instead of something the learner can define away.
+        """
         s = self.scenario.settings
+        limit = cp.credit_limit if cp.credit_limit is not None else decision.limit
         return RunConfig(
             seed=s.seed,
             n_paths=s.n_paths,
@@ -268,7 +347,7 @@ class ScenarioEngine:
             csa_mta=decision.csa_mta,
             csa_initial_margin=decision.csa_initial_margin,
             csa_mpor_days=decision.csa_mpor_days,
-            limit=decision.limit,
+            limit=limit,
         )
 
     @staticmethod
@@ -293,6 +372,21 @@ class ScenarioEngine:
         if decision is None:
             return Decision(trade_id=arrival.trade_id, action=DecisionAction.DECLINE)
         return decision
+
+
+def _cds_spread_5y(snapshot: MarketSnapshot, issuer: str | None) -> float | None:
+    """The issuer's 5-year CDS par spread this round, as a decimal.
+
+    Returned as the learner-facing headline of how the market prices this name's
+    credit *now* (it moves with the round's scripted spread multiplier). ``None``
+    when the counterparty has no traded curve; the tenor nearest 5y is used when
+    the curve has no exact 5y point.
+    """
+    if issuer is None or issuer not in snapshot.credit_curves:
+        return None
+    curve = snapshot.credit_curves[issuer]
+    idx = min(range(len(curve.tenors)), key=lambda i: abs(curve.tenors[i] - 5.0))
+    return float(curve.spreads[idx])
 
 
 def _scale_issuer_credit(

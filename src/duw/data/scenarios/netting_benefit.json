@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Netting and headroom: one client, three trades",
+    "description": "Northgate Utilities is a solid name that never defaults, and the credit committee has already set its limit. Three trades arrive against that one ISDA master. Nothing here turns on credit: the entire question is how much exposure each new trade actually adds to the set, and whether it fits in the headroom that is left.",
+    "n_rounds": 3,
+    "learning_objectives": [
+      "Read limit utilization as the netting set's peak PFE over the approved limit.",
+      "See that same-direction trades compound the netted exposure while offsetting trades reduce it.",
+      "Judge a new trade on its incremental exposure, not its standalone size.",
+      "Decline a trade that has no headroom rather than breach a limit you do not control."
+    ]
+  },
+  "settings": {
+    "seed": 7311,
+    "n_paths": 800,
+    "n_steps": 8,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "NGU",
+        "name": "Northgate Utilities",
+        "sector": "Utilities",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 9000.0,
+          "total_liabilities": 5400.0,
+          "current_assets": 2200.0,
+          "current_liabilities": 1500.0,
+          "retained_earnings": 1900.0,
+          "ebit": 900.0,
+          "sales": 4200.0,
+          "market_equity": 4200.0,
+          "equity_volatility": 0.25,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 4000000.0,
+      "credit_path": []
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "NGU-1-PAYER",
+        "counterparty_id": "NGU",
+        "notional": 25000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Northgate's limit is set by the credit committee, not by you: the Credit limit box is fixed and greyed out for this client. Your job is to work inside it. This first 10-year payer swap is the only trade on the master, so the netting set's peak PFE is just this trade's. Check the utilization it uses up and how much headroom is left, then approve it open. Northgate is a stable BBB utility with no credit story here, so collateral would only concede spread.",
+      "prediction": {
+        "prompt": "This trade's peak PFE comes in around 3.4m and the committee limit is 4m. What is the limit utilization, and what does it leave you?",
+        "options": [
+          "About 30% used, so there is room for two or three more trades this size",
+          "About 85% used, leaving roughly 0.6m of headroom",
+          "Over 150% used, so this trade already breaches"
+        ],
+        "correct_index": 1,
+        "explanation": "Utilization is the netting set's peak PFE divided by the approved limit: 3.4m / 4m is about 85%, leaving roughly 0.6m of headroom. One trade has consumed almost the whole line, which is exactly the constraint the next two rounds run into."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "NGU-2-PAYER",
+        "counterparty_id": "NGU",
+        "notional": 25000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Northgate wants a second payer swap on identical terms. It faces the same way as the trade already on the book, so the two do not offset: when rates rise, both move in your favour at once and the netted exposure roughly doubles. Look at the incremental exposure and the headroom on the Consequences panel. There is no room, and you cannot raise a limit the committee set. Note also that collateral will not rescue this: the limit is measured on uncollateralized netted PFE, so a CSA changes what you would lose, not what you have used. Decline it, and tell the client you can revisit once the line is freed up.",
+      "prediction": {
+        "prompt": "A second payer swap on identical terms arrives, under the same ISDA master. What happens to the netting set's peak PFE?",
+        "options": [
+          "It stays roughly flat, because trades under one master always net against each other",
+          "It roughly doubles, because both trades gain on the same move",
+          "It falls, because a bigger netting set always nets down"
+        ],
+        "correct_index": 1,
+        "explanation": "Netting is not a discount for having more trades; it nets the MtM. Two trades facing the same way gain together, so their values add and the netted exposure roughly doubles, to about 7m against a 4m limit."
+      },
+      "recommended": {
+        "action": "decline",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "NGU-3-RECEIVER",
+        "counterparty_id": "NGU",
+        "notional": 15000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2035-06-30",
+        "fixed_rate": 0.043,
+        "direction": "receive_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Now a 15m receiver swap. Judged on its own it is another large trade against a line that was already 87% used, and a gross view of the book would turn it away. But it faces the opposite way to the payer on the master: when rates rise it loses exactly as the payer gains. Under one netting set only the net matters, so this trade cuts the set's exposure instead of adding to it. Look at the incremental exposure figure, which should be negative, and at the headroom, which should open up. Approve it open.",
+      "prediction": {
+        "prompt": "A 15m receiver swap arrives against a book holding a 25m payer, all under one ISDA master. What does it do to the netting set's peak PFE?",
+        "options": [
+          "Raises it by roughly this trade's own standalone exposure",
+          "Lowers it, because the receiver loses on exactly the moves where the payer gains",
+          "Leaves it unchanged, since exposure is measured one trade at a time"
+        ],
+        "correct_index": 1,
+        "explanation": "Exposure is on the net MtM of the master, not per trade. The receiver offsets most of the payer, so the set's peak PFE falls and the incremental exposure of this trade is negative: you can do more business with this client while carrying less risk than before."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "limit": 4000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

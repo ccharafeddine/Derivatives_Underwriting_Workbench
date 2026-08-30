@@ -13,8 +13,13 @@ import pytest
 from PySide6.QtCore import QEventLoop, QTimer
 
 from duw.scenario.io import load_bundled_scenario
-from duw.scenario.model import Decision, DecisionAction
-from duw.ui.tabs.simulator_tab import SimulatorTab, headless_score
+from duw.scenario.model import Decision, DecisionAction, DecisionOutcome
+from duw.ui.tabs.simulator_tab import (
+    SimulatorTab,
+    _collateral_rows,
+    _sensitivity_rows,
+    headless_score,
+)
 
 SAMPLE = "rising_rates_default"
 ACME = "D1-ACME-IRS"
@@ -184,3 +189,123 @@ def test_engine_runs_off_the_ui_thread(qapp) -> None:
     assert tab.is_busy()  # engine work is on the worker thread, not the UI thread
     _wait_idle(tab)
     assert not tab.is_busy()
+
+
+def _outcome(**kwargs) -> DecisionOutcome:
+    base = dict(
+        round=0,
+        trade_id="T",
+        counterparty_id="CP",
+        action=DecisionAction.CONDITION,
+        accepted=True,
+        recommendation=None,
+        peak_pfe=1_000_000.0,
+        epe=100_000.0,
+        collateralized_peak_pfe=50_000.0,
+        cva=1_000.0,
+        dva=0.0,
+        bcva=1_000.0,
+        limit_utilization=0.2,
+        limit_breach=False,
+    )
+    base.update(kwargs)
+    return DecisionOutcome(**base)
+
+
+def test_collateral_rows_appear_only_under_a_csa() -> None:
+    outcome = _outcome(uncollateralized_peak_pfe=1_000_000.0, mpor_days=10)
+    open_deal = Decision(trade_id="T", action=DecisionAction.APPROVE)
+    assert _collateral_rows(outcome, open_deal) == []
+
+    secured = Decision(
+        trade_id="T",
+        action=DecisionAction.CONDITION,
+        require_collateral=True,
+        csa_threshold=250_000.0,
+    )
+    labels = dict(_collateral_rows(outcome, secured))
+    # The benefit the terms bought, and the gap the MPoR leaves, are both named.
+    assert labels["Exposure removed by the CSA"] == "950,000"
+    assert labels["CSA threshold"] == "250,000"
+    assert labels["Margin period of risk"] == "10 business days"
+    # Initial margin is listed only when some is actually demanded.
+    assert "Initial margin" not in labels
+    with_im = Decision(
+        trade_id="T",
+        action=DecisionAction.CONDITION,
+        require_collateral=True,
+        csa_initial_margin=400_000.0,
+    )
+    assert "Initial margin" in dict(_collateral_rows(outcome, with_im))
+
+
+def test_sensitivity_rows_are_hidden_unless_computed() -> None:
+    assert _sensitivity_rows(_outcome()) == []
+    rows = dict(
+        _sensitivity_rows(
+            _outcome(
+                dv01_pfe=9_944.86,
+                dv01_cva=69.85,
+                cs01_cva=56.21,
+                fx_delta_pfe=0.0,
+                fx_delta_cva=0.0,
+            )
+        )
+    )
+    assert len(rows) == 5
+    # The sign is the lesson, so it is always shown.
+    assert rows["DV01 of peak PFE (per 1bp rates)"] == "+9,944.9"
+    assert rows["FX delta of peak PFE (per 1% FX)"] == "+0.0"
+
+
+def test_the_suite_never_touches_the_real_progress_file(qapp, tmp_path) -> None:
+    """A default-constructed tab must not reach the learner's own progress file.
+
+    ``load_default`` loads a scenario that *is* a campaign stage, so playing it
+    records a result. Without the ``isolated_progress`` fixture in conftest that
+    write lands in the developer's real ``~/.duw/campaign.json`` and silently
+    marks stages cleared, so this pins the isolation down.
+    """
+    from duw.store.progress import default_progress_path
+
+    assert default_progress_path() == tmp_path / "campaign.json"
+    tab = SimulatorTab()
+    assert tab._store.path == tmp_path / "campaign.json"
+    # And free-playing a bundled scenario still counts towards its stage, which
+    # is the behaviour that made the leak possible in the first place.
+    tab.load_default()
+    _wait_idle(tab)
+    assert tab._stage_name == "rising_rates_default"
+
+
+def test_a_commit_during_a_preview_is_queued_not_dropped(qapp) -> None:
+    """Committing while a preview is still running must still advance the round.
+
+    Moving a CSA dial kicks off a preview, and committing straight afterwards is
+    an ordinary thing for a learner to do. The commit is deferred until the
+    preview's thread is free, never discarded.
+    """
+    tab = SimulatorTab()
+    tab.load_default()
+    _wait_idle(tab)
+    step = tab._current_step()
+    assert step is not None and step.kind == "decision"
+    trade_id = step.deal.trade_id
+
+    # Moving a CSA dial is live: it kicks off a preview on the worker thread.
+    tab.set_candidate(_approve(collateral=True, csa_threshold=0.0))
+    tab.threshold_spin.setValue(250_000.0)
+    assert tab.is_busy(), "moving the threshold dial should request a preview"
+
+    tab._on_commit()
+    # The decision is recorded immediately even though the run is deferred.
+    assert trade_id in tab._committed
+    assert tab._committed[trade_id].csa_threshold == pytest.approx(250_000.0)
+    _wait_idle(tab)
+
+    # The queued commit ran and the tab moved off this deal.
+    assert tab._current_step() is not step
+    assert tab._committed[trade_id].require_collateral is True
+    # Advancing opened the next deal, which starts its own preview: let it finish
+    # so the tab is not collected with a worker thread still running.
+    _wait_idle(tab)

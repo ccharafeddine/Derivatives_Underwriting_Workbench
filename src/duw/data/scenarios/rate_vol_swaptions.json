@@ -124,7 +124,7 @@
         "underlying_frequency": "annual",
         "bought": true
       },
-      "coaching": "Orion Markets stays healthy and never defaults here. Charge the CVA and approve this Swaption open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "coaching": "Orion Markets sells you a payer swaption: the right, not the obligation, to enter a five-year payer swap at 4.3%. You pay a premium for it, and that purchase makes this position one-sided in a way nothing you have underwritten so far has been. A swap can end up owing either party. An option you own is worth something or it is worth nothing — it is never a liability — so Orion can owe you but you can never owe Orion. Every dollar of the exposure profile is therefore yours to carry, with no offsetting paths to net it down. Orion itself is sound and survives the scenario, so approve it open and charge the CVA on the one-way profile.",
       "recommended": {
         "action": "approve",
         "require_collateral": false,
@@ -133,6 +133,16 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 3500000.0
+      },
+      "prediction": {
+        "prompt": "You have bought this swaption and paid the premium. On how many paths can Orion end up with exposure to you?",
+        "options": [
+          "About half of them, as with a swap — the option can move either way once rates start moving",
+          "None. A bought option is an asset or it is nothing, so the exposure runs one way only",
+          "All of them, because you have already paid the premium away and are owed it back"
+        ],
+        "correct_index": 1,
+        "explanation": "The premium is paid up front and gone; what you hold afterwards is a right you will exercise only if it is worth exercising. Its value is floored at zero, so the mark-to-market is never negative to you and the counterparty is never in the money on you. That one-sidedness is the defining feature of a bought option in counterparty terms: there is no expected negative exposure at all, which later turns out to be why an option carries no DVA and the most expensive funding profile of any position."
       }
     },
     {
@@ -152,7 +162,7 @@
         "underlying_frequency": "annual",
         "bought": true
       },
-      "coaching": "Vega Capital stays healthy and never defaults here. Charge the CVA and approve this Swaption open; collateralizing a survivor only concedes spread. Recommended: Approve, no collateral.",
+      "coaching": "Rates have risen 120bp since last round, and Vega Capital offers the same structure at the same 4.3% strike on a smaller sixteen-million notional. The strike has not moved but the market has moved up through it, so this option is now well in the money and far more likely to be exercised. Watch the EPE rather than the peak: on a fifth less notional it comes out roughly half as much again as Orion's, because an option deep in the money behaves much more like the underlying swap than a far out-of-the-money one does. Vega is sound and survives. Approve it open.",
       "recommended": {
         "action": "approve",
         "require_collateral": false,
@@ -161,6 +171,16 @@
         "csa_initial_margin": 0.0,
         "csa_mpor_days": 10,
         "limit": 4000000.0
+      },
+      "prediction": {
+        "prompt": "Same 4.3% strike, smaller notional, but rates are now 120bp higher than when you wrote Orion's. What happens to expected exposure per unit of notional?",
+        "options": [
+          "It falls, because the smaller notional means less at risk",
+          "It rises substantially, because the option is now well in the money and much more likely to be exercised",
+          "It is unchanged, because the strike and the maturity are the same and those fix the option's value"
+        ],
+        "correct_index": 1,
+        "explanation": "An option's exposure depends on where the market sits relative to the strike, not on the strike alone. With rates 120bp above it, the right to pay 4.3% is valuable and very likely to be exercised, so the expected exposure through the life of the trade climbs steeply — here to roughly double Orion's per unit of notional. This is also why an option's counterparty risk is not fixed at inception: it grows as the option moves into the money."
       }
     }
   ],

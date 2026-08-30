@@ -204,15 +204,29 @@ consequences compound as counterparties migrate in credit quality and some
 default.*
 
 Play a scripted scenario round by round: a deal arrives, you size up the
-counterparty, set collateral and a limit, and commit an approve / condition /
-decline decision; then time advances, credit migrates, and some counterparties
-default. You are scored on risk-adjusted P&L, so recklessness and over-caution
-both cost you. A **guided (tutorial) mode** explains every number as you go,
-recommends the best play with the reasoning, and, at the end, grades your run
-against a best-play benchmark with a round-by-round reading of where you gained
-or lost ground. Nine scenarios ship — interest rate swaps, an FX forward, a
-swaption book, and a cross-currency desk; some end in a default, some stay clean
-— selectable from a menu or drawn at random, and each is replayable.
+counterparty from its credit dossier, set the collateral terms and check the
+limit, and commit an approve / condition / decline decision; then time advances,
+credit migrates, and some counterparties default. You are scored on risk-adjusted
+P&L, so recklessness and over-caution both cost you.
+
+The scenarios are arranged as a **17-stage campaign** rather than a menu. Stages
+run in dependency order and each unlocks the next, so concepts arrive when their
+prerequisites are in place: the core decision first, then reading the credit
+evidence unaided, then netting and the committee's limit, then calibrating the
+CSA, then the same workflow across all five products (swaps, FX forwards,
+swaptions, cross-currency swaps, CDS), then the funding and own-credit legs,
+wrong-way risk, and the sensitivity report — closing on an unaided capstone. A
+practice mode unlocks everything for revisiting a topic out of order, and
+progress, medals and best scores persist between sessions.
+
+Stages that introduce a new mechanism are **guided**: the coach explains each
+number, recommends a decision with its reasoning, and — before the analytics are
+revealed — asks you to *predict* what they will show, so you find out what you
+actually believe rather than nodding along. Stages that ask you to apply a
+mechanism you have already met run unaided. Every run closes with a debrief that
+scores you against the scenario's own best-play benchmark, grades you on four
+underwriting skills, and reads back round by round where you gained or lost
+ground.
 
 ![Simulator tab](docs/images/simulator.png)
 
@@ -345,17 +359,13 @@ construction (OIS discounting vs projection).
 These are the app's intended next direction as teaching software. **They are
 not built yet** — this section describes future work, not current features.
 
-- **Role-play underwriting simulator.** A proposed deal each round: you assess
-  the counterparty, set collateral and limits, and price the trade; then
-  simulated time advances, counterparties migrate in credit quality and some
-  default, and you live with the consequences of earlier decisions — scored on
-  risk-adjusted P&L.
-- **Interactive concept labs.** A slider-and-live-chart sandbox for each
-  concept: for example, a wrong-way-risk lab where correlation is a slider and
-  CVA redraws live, or a collateral lab where threshold, MTA, and MPoR move and
-  collateralized PFE responds. The aim is to surface the newer quantitative
-  features (FVA, wrong-way risk, sensitivities) as things you manipulate, not
-  numbers you read.
+- **Interactive concept labs.** A slider-and-live-chart sandbox for each concept,
+  standing outside the deal flow: for example a wrong-way-risk lab where the
+  correlation is a slider and CVA redraws live. The Simulator's decision page
+  already does some of this within a deal — the CSA threshold, MTA, initial
+  margin and margin period of risk are live dials, and the exposure numbers
+  respond as you move them — but there is no free-standing lab for a concept you
+  want to explore without underwriting a trade.
 - **Instructor mode.** Author and share a scenario — scripted counterparty
   credit paths, a market path, a deal stream, and defaults — and review student
   decisions against it.

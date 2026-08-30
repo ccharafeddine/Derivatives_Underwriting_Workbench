@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
   "meta": {
-    "title": "Tutorial: your first two deals",
-    "description": "A gentle, guided two-round walk-through of the underwriting decision. You take one deal from a shaky industrial that will default, and one from a healthy bank that will not. The coach explains every number and tells you what to do and why, so you can see what a winning book looks like before you play unaided.",
-    "n_rounds": 2,
+    "title": "Tutorial: your first three deals",
+    "description": "A guided walk-through of the underwriting decision, in three rounds. The coach explains every number on the first two deals and tells you what to do and why; on the third it steps back and asks you to read the counterparty dossier and call it yourself. Before the analytics appear on each deal you are asked to predict what they will show, so you find out what you actually believe before the screen tells you.",
+    "n_rounds": 3,
     "tutorial": true,
-    "intro": "Welcome. You are the underwriting desk. Each round a deal arrives and you decide: approve it, approve it only with collateral, or decline it. Three numbers matter most. Peak PFE is the worst-but-plausible amount you could lose if the counterparty defaulted, the size of the risk. CVA is the price of that default risk, which you charge the client as revenue. Realized losses are what you actually lose if a name on your book defaults. Your goal is the highest Risk-adjusted score: earn revenue, but do not carry exposure you would lose in a default. The coach panel on each deal tells you what to weigh and what it recommends. Follow it this time; next time you are on your own.",
-    "outro": "That is the whole loop. The shaky name needed collateral because it defaulted, and collateral turned a real loss into zero. The healthy name did not need it, so demanding collateral there would only have conceded spread. Reading exposure, pricing the credit, and setting the right collateral is the entire job. Load the full scenario from the prompt screen to play it for real.",
+    "intro": "Welcome. You are the underwriting desk. Each round a client asks for a derivative trade and you decide: approve it, approve it only against collateral, or decline it. Four numbers carry the decision. Peak PFE is the worst-but-plausible amount you could be owed if the counterparty defaulted, so it is the size of the risk. CVA is the price of that default risk, which you charge the client as revenue. The counterparty dossier on the left is the evidence about whether they will actually pay. And realized losses are what you really lose when a name on your book fails. Your goal is the highest risk-adjusted score: earn the revenue, but do not carry exposure you would lose in a default. The coach walks you through the first two deals. The third is yours.",
+    "outro": "That is the whole loop. Widget was shaky and defaulted, and collateral turned what would have been a large closeout loss into zero. Stalwart was strong and survived, so demanding collateral there would only have conceded spread for protection you never needed. Kestrel you called yourself, from the dossier rather than from the coach, which is the actual job: exposure tells you how big the risk is, the credit evidence tells you how likely it is to bite, collateral decides how much of it you keep, and the limit decides whether you are allowed to. Every later stage of the campaign is these same four questions on harder ground.",
     "learning_objectives": [
-      "Read Peak PFE as the size of the counterparty risk on a deal.",
-      "Require collateral on a name that may default, to neutralize the loss.",
+      "Read peak PFE as the size of the counterparty risk on a deal.",
+      "Read the counterparty dossier — distance-to-default, PD, Altman zone, CDS spread — as the evidence on whether they will pay.",
+      "Require collateral on a name that may fail, to neutralize the loss.",
       "Leave a healthy survivor open rather than concede spread for protection it does not need.",
-      "See how the Risk-adjusted score rewards revenue net of the risk you retain."
+      "See how the risk-adjusted score rewards revenue net of the risk you retain."
     ]
   },
   "settings": {
@@ -82,6 +83,36 @@
       },
       "recovery_rate": 0.4,
       "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "TUT-LOG",
+        "name": "Kestrel Logistics",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "INITECH",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 2600.0,
+          "total_liabilities": 2350.0,
+          "current_assets": 780.0,
+          "current_liabilities": 980.0,
+          "retained_earnings": 60.0,
+          "ebit": 95.0,
+          "sales": 2100.0,
+          "market_equity": 380.0,
+          "equity_volatility": 0.62,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_path": [
+        {
+          "round": 2,
+          "spread_multiplier": 2.5,
+          "internal_rating": "B"
+        }
+      ]
     }
   ],
   "market_path": [
@@ -97,6 +128,16 @@
     },
     {
       "round": 1,
+      "spec": {
+        "name": "Rates +200bp",
+        "rate_shift_bps": 200.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 2,
       "spec": {
         "name": "Rates +200bp",
         "rate_shift_bps": 200.0,
@@ -126,7 +167,17 @@
         "float_index": "SOFR",
         "float_spread": 0.0
       },
-      "coaching": "Deal one: Widget Industrial wants a 5-year payer swap. Look at the Consequences panel. Peak PFE is how much you could lose if Widget defaults while the swap is in your favour, and as rates rise this swap moves your way, so that exposure grows. Widget is a shaky BBB name that will deteriorate and default next round. So charge the CVA and take the business, but require collateral: with a CSA in place the exposure is covered and a default costs you nothing. Set the action to 'Condition (collateralize)' and tick 'Require collateral'. Click 'Apply recommended' to fill it in, then Commit.",
+      "coaching": "Deal one: Widget Industrial wants a five-year payer swap. Start on the right. Peak PFE is how much you could be owed if Widget failed while the swap was in your favour, and because this swap gains as rates rise, that exposure grows over the year ahead. Now look at the Counterparty panel on the left: this is a BBB industrial today, but it is going to deteriorate sharply and fail next round. So take the business and charge the CVA, but require collateral. Under a CSA with a zero threshold, Widget posts margin against the exposure as it builds, and a default costs you nothing. Set the action to 'Condition (collateralize)' and tick 'Require collateral' — or click 'Apply recommended' to fill it in — then commit.",
+      "prediction": {
+        "prompt": "You are about to require collateral with a zero threshold. What will that do to the two exposure numbers on the Consequences panel?",
+        "options": [
+          "Both peak PFE and collateralized peak PFE fall to near zero",
+          "Peak PFE is unchanged; only collateralized peak PFE falls to near zero",
+          "Neither changes; collateral only matters once a default actually happens"
+        ],
+        "correct_index": 1,
+        "explanation": "Peak PFE measures the exposure the trade creates, which the collateral agreement does not alter — the swap is the same swap. What the CSA changes is how much of that exposure you are still carrying once margin is posted, which is the collateralized figure. Keeping both on screen is the point: one is the risk you took, the other is the risk you kept."
+      },
       "recommended": {
         "action": "condition",
         "require_collateral": true,
@@ -155,10 +206,59 @@
         "float_index": "SOFR",
         "float_spread": 0.0
       },
-      "coaching": "Deal two: Stalwart Bank, a strong A-rated name that stays healthy all the way through. Same trade, very different call. Because Stalwart will not default, collateral here buys you protection you do not need and concedes spread in return, which lowers your revenue. Just approve it and leave it open to earn the full fee. Set the action to 'Approve' and leave 'Require collateral' unticked, or click 'Apply recommended'. Then Commit to finish the scenario.",
+      "coaching": "Deal two: Stalwart Bank, a strong A-rated bank that stays healthy for the whole scenario. Same trade, opposite call. Check the dossier against Widget's: a far larger distance-to-default, a one-year PD that rounds to nothing, a safe Altman zone, and a CDS spread the market prices at a fraction of Widget's. Collateral here would buy protection against a default that is not coming, and you would pay for it in conceded spread and a thinner CVA — because a client only pays you for the credit risk you actually run. Approve it and leave it open. Set the action to 'Approve', leave 'Require collateral' unticked, then commit.",
+      "prediction": {
+        "prompt": "This counterparty is not going to default. What is the cost of demanding collateral from it anyway?",
+        "options": [
+          "Nothing — collateral is free protection, so it is always the safer choice",
+          "You concede spread to win the trade and can charge less CVA, so a safe deal earns you materially less",
+          "Only the administrative burden of running the margin calls"
+        ],
+        "correct_index": 1,
+        "explanation": "Collateral is a price, not a free option. A client that can post margin elsewhere will make you pay for asking, so your spread narrows, and once the exposure is margined away there is little credit risk left to charge a CVA on. That is why over-collateralizing a strong name is a real way to lose money on this desk, and why 'always demand collateral' is not a strategy."
+      },
       "recommended": {
         "action": "approve",
         "require_collateral": false,
+        "limit": 3000000.0
+      }
+    },
+    {
+      "round": 2,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "T3-KESTREL-IRS",
+        "counterparty_id": "TUT-LOG",
+        "notional": 10000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Deal three, and this time you call it. Kestrel Logistics is a haulage business, and nobody is going to tell you whether it survives. Everything you need is on the Counterparty panel, so read it the way you just learned: how many standard deviations of asset value sit between this firm and its debt, what one-year PD that implies, which Altman zone the balance sheet lands in, and what the CDS market charges to insure the name. Compare each reading against Stalwart's from last round. Then notice the CVA on the right: on an identical trade to Stalwart's it is roughly eight times the size, which is your own model pricing the difference. Decide whether you want to face this client unsecured, and commit. Only afterwards look at what the recommendation was.",
+      "prediction": {
+        "prompt": "Read Kestrel's dossier and commit to a view before you decide. What is the evidence telling you?",
+        "options": [
+          "It reads much like Stalwart: a wide distance-to-default, a negligible PD, a tight CDS spread",
+          "It is materially weaker than anything you have seen: distance-to-default under 2, a one-year PD above 5%, a distressed Altman zone, and a CDS spread many times Stalwart's",
+          "The dossier gives no real basis to rank this name against the others"
+        ],
+        "correct_index": 1,
+        "explanation": "Every reading points the same way: a distance-to-default under 2, a one-year PD above 5% where Stalwart's rounded to nothing, an Altman score deep in distress, and a CDS spread many times wider. The CVA follows, at roughly eight times Stalwart's on the same trade. When the evidence lines up like this the call is not close: take the business, charge for it, and secure it."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
         "limit": 3000000.0
       }
     }
@@ -167,7 +267,12 @@
     {
       "round": 1,
       "counterparty_id": "TUT-IND",
-      "coaching": "Widget Industrial has defaulted, one round after you took its swap. Look at the Realized loss: because you required collateral, the exposure was covered and the loss is zero. Had you approved it open, this is exactly where a large closeout loss would have landed on your book. That single collateral decision is the difference between a clean book and a bad quarter."
+      "coaching": "Widget Industrial has defaulted, one round after you took its swap. Look at the realized loss: because you required collateral, the exposure was margined and the loss is zero. Had you approved it open, this is exactly where a large closeout loss would have landed. That single decision is the difference between a clean book and a bad quarter."
+    },
+    {
+      "round": 2,
+      "counterparty_id": "TUT-LOG",
+      "coaching": "Kestrel has failed too — and this one you called yourself, from the dossier, with no coach naming it. If you secured it, your realized loss is zero and you have just done the job unaided. If you did not, compare the loss here against the revenue you kept by leaving it open, and note how badly that trade goes. Either way, the evidence was on the screen before you decided."
     }
   ]
 }

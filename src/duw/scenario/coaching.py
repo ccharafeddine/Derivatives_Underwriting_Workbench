@@ -218,6 +218,123 @@ def _any_default(scenario: Scenario) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Skills debrief
+# ---------------------------------------------------------------------------
+
+#: Grades a skill can be given, best first.
+GRADE_MET = "met"
+GRADE_PARTIAL = "partial"
+GRADE_MISSED = "missed"
+
+
+@dataclass(frozen=True)
+class SkillGrade:
+    """How the learner did on one underwriting skill, versus the best play.
+
+    A single P&L number tells a learner they lost without telling them *which
+    part of the job* they got wrong. These grades split the same run into the
+    four things a desk is actually judged on — protecting the book, charging for
+    the credit, staying competitive, and respecting the limit — so the debrief
+    points at a behaviour to change rather than a number to beat.
+
+    ``grade`` is one of :data:`GRADE_MET`, :data:`GRADE_PARTIAL`, or
+    :data:`GRADE_MISSED`; ``detail`` says what the learner did and what the
+    reference did instead.
+    """
+
+    skill: str
+    grade: str
+    detail: str
+
+
+def _grade_gap(shortfall: float, tol: float) -> str:
+    """Grade a shortfall against the benchmark: within tolerance is a pass."""
+    if shortfall <= tol:
+        return GRADE_MET
+    if shortfall <= tol * 4.0:
+        return GRADE_PARTIAL
+    return GRADE_MISSED
+
+
+def skill_report(
+    student: ScoreResult, target: ScoreResult, tol: float | None = None
+) -> tuple[SkillGrade, ...]:
+    """Grade the learner's run against the best play, skill by skill.
+
+    ``tol`` is the money gap treated as "matched" (defaults to 1% of the
+    benchmark's magnitude, floored modestly) so simulation-scale noise is not
+    read as a mistake. Cheap: operates on two already-computed
+    :class:`ScoreResult`\\ s, no engine run.
+    """
+    s, t = student.breakdown, target.breakdown
+    if tol is None:
+        tol = max(abs(target.risk_adjusted_score) * 0.01, 500.0)
+
+    grades: list[SkillGrade] = []
+
+    # 1. Protection — did a default land on the book that the reference avoided?
+    loss_gap = s.realized_losses - t.realized_losses
+    if s.realized_losses <= 0.0:
+        detail = "No default loss reached your book."
+    elif loss_gap <= tol:
+        detail = (
+            f"You took {_money(s.realized_losses)} in default losses, about what "
+            "the best play could not avoid either."
+        )
+    else:
+        detail = (
+            f"{_money(loss_gap)} of default loss landed on your book that the "
+            "best play kept off it. Collateral on the failing name was the fix."
+        )
+    grades.append(
+        SkillGrade("Protecting the book", _grade_gap(max(loss_gap, 0.0), tol), detail)
+    )
+
+    # 2. Pricing — was the credit risk charged for?
+    cva_gap = t.cva_collected - s.cva_collected
+    if cva_gap <= tol:
+        detail = (
+            f"You collected {_money(s.cva_collected)} of CVA, in line with the "
+            "reference."
+        )
+    else:
+        detail = (
+            f"You collected {_money(cva_gap)} less CVA than the best play, so "
+            "credit risk you did take went unpriced — usually a declined deal."
+        )
+    grades.append(
+        SkillGrade("Pricing the credit", _grade_gap(max(cva_gap, 0.0), tol), detail)
+    )
+
+    # 3. Competitiveness — was spread conceded or business turned away needlessly?
+    rev_gap = t.revenue - s.revenue
+    if rev_gap <= tol:
+        detail = f"You earned {_money(s.revenue)} of revenue, matching the reference."
+    else:
+        detail = (
+            f"You earned {_money(rev_gap)} less revenue than the best play. You "
+            "declined workable business or demanded collateral a healthy name "
+            "did not need."
+        )
+    grades.append(
+        SkillGrade("Staying competitive", _grade_gap(max(rev_gap, 0.0), tol), detail)
+    )
+
+    # 4. Limit discipline — a breach is binary, so it is graded outright.
+    if s.breach_penalty <= 0.0:
+        grade, detail = GRADE_MET, "You stayed inside the limit on every deal."
+    else:
+        grade = GRADE_PARTIAL if t.breach_penalty > 0.0 else GRADE_MISSED
+        detail = (
+            f"You breached a limit, costing {_money(s.breach_penalty)}. Check "
+            "headroom against the incremental exposure before committing."
+        )
+    grades.append(SkillGrade("Respecting the limit", grade, detail))
+
+    return tuple(grades)
+
+
+# ---------------------------------------------------------------------------
 # Live "on track" gauge (cheap; called each round during play)
 # ---------------------------------------------------------------------------
 

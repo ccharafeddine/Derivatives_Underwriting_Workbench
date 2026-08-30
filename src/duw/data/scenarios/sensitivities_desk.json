@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Sensitivities: what actually moves the number",
+    "description": "Peak PFE and CVA are single numbers, and a single number never says which risk factor produced it. Sensitivities do: bump rates a basis point, bump credit spreads a basis point, bump FX a percent, and re-run. This stage turns them on for two clients with deliberately identical credit — one on a rate swap, one on an FX forward, sized to similar peak PFEs — so every difference in the numbers has to come from the shape of the trade. It is the only stage that computes them, because each deal costs several extra pipeline runs.",
+    "n_rounds": 2,
+    "tutorial": true,
+    "intro": "An underwriting memo reporting a peak PFE of five million has said almost nothing. Five million of what? A rate move, a credit move, a currency move? Sensitivities answer that, and they are computed the honest way: bump one input, re-run the whole pipeline, take the difference. DV01 is the change per one basis point on rates. CS01 is the change in CVA per one basis point on credit spreads. FX delta is the change per one percent on the exchange rate. Each bumped run reuses the base run's Monte Carlo seed, so what you see is the market move and not simulation noise — that trick is called common random numbers, and without it a one-basis-point signal would be buried. Two deals this stage, two clients with identical credit, similar peak PFEs, and almost nothing in common underneath. Because sensitivities cost several extra pipeline runs each, this scenario runs with fewer paths than the others: read the relative sizes, not the last digit.",
+    "outro": "Two clients with deliberately identical credit, two trades with similar peak PFEs, and three sensitivity rows that agreed on nothing. The swap ran on rates — a large DV01 and an FX delta of exactly zero, because there is no currency in it for the bump to reach. The forward ran on the exchange rate, with an FX delta many times larger than anything else and a rate sensitivity so small it came out with the opposite sign, arriving through discounting rather than through the payoff. And CS01, the one you might have expected to match, did not: the forward's was more than twice the swap's, because CVA is charged on exposure averaged across the life while the limit is set on the single worst point, and those two numbers stand in very different relation to each other for a trade that amortises than for one that does not. Carry three things out of this stage. DV01 and FX delta tell you what a position is made of. CS01 tells you what the credit behind it costs, and follows the average exposure rather than the peak. And a headline exposure figure, on its own, tells you none of it.",
+    "learning_objectives": [
+      "Read DV01, CS01 and FX delta as the answer to 'which risk factor is this exposure actually running on?'",
+      "See that a one-line peak PFE hides whether the risk is rates, credit or currency.",
+      "Recognize DV01 and FX delta as properties of the position, and CS01 as the credit charge on the exposure.",
+      "Distinguish peak PFE from EPE, and see why a limit and a price answer different questions about one trade.",
+      "Understand finite-difference sensitivities: bump one input, re-run with the same seed, take the difference.",
+      "See why common random numbers matter — without them a one-basis-point bump would be lost in Monte Carlo noise."
+    ]
+  },
+  "settings": {
+    "seed": 3312,
+    "n_paths": 250,
+    "n_steps": 4,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5,
+    "compute_sensitivities": true
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "SEN-TRD",
+        "name": "Calder Trading Group",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 4600.0,
+          "total_liabilities": 3500.0,
+          "current_assets": 2200.0,
+          "current_liabilities": 1700.0,
+          "retained_earnings": 640.0,
+          "ebit": 410.0,
+          "sales": 5200.0,
+          "market_equity": 1500.0,
+          "equity_volatility": 0.36,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 4000000.0,
+      "credit_path": []
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "SEN-CMD",
+        "name": "Renton Commodities",
+        "sector": "Industrials",
+        "ticker": null,
+        "cds_issuer": "ACME",
+        "internal_rating": "BBB",
+        "financials": {
+          "total_assets": 4600.0,
+          "total_liabilities": 3500.0,
+          "current_assets": 2200.0,
+          "current_liabilities": 1700.0,
+          "retained_earnings": 640.0,
+          "ebit": 410.0,
+          "sales": 5200.0,
+          "market_equity": 1500.0,
+          "equity_volatility": 0.36,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 4000000.0,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "IRS",
+        "trade_id": "S1-CALDER-IRS",
+        "counterparty_id": "SEN-TRD",
+        "notional": 30000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "fixed_rate": 0.043,
+        "direction": "pay_fixed",
+        "fixed_frequency": "annual",
+        "float_frequency": "quarterly",
+        "fixed_day_count": "30/360",
+        "float_day_count": "act/360",
+        "float_index": "SOFR",
+        "float_spread": 0.0
+      },
+      "coaching": "Calder Trading opens with a thirty-million five-year payer swap. Approve it, then read the block at the bottom of the Consequences panel — this is the only stage in the campaign that computes it. Each of those rows is a finite difference: the whole pipeline was re-run against a snapshot with one input nudged, and the difference divided by the size of the nudge. DV01 of peak PFE is large and positive, which is the quantitative version of what you learned in the rising-rates round: this swap gains as rates rise, so the exposure grows with them. FX delta is exactly zero, and it should be, because there is no currency anywhere in this trade for the bump to touch. CS01 is not zero and has nothing to do with the swap's economics — it is the CVA moving as Calder's own credit spread widens. Note its size, and note the EPE just above it too. Next round a different instrument with identical credit behind it and a similar peak PFE will produce a very different CS01, and the reason will be sitting in that EPE row.",
+      "prediction": {
+        "prompt": "This is a single-currency USD interest rate swap. What will the FX delta rows show, and why?",
+        "options": [
+          "A large FX delta, because all exposure is ultimately measured in dollars and dollars move against other currencies",
+          "Exactly zero, because the trade has no foreign-currency leg for an FX move to reprice",
+          "A small non-zero FX delta, from currency risk embedded in the floating index"
+        ],
+        "correct_index": 1,
+        "explanation": "Sensitivities are computed by bumping an input and repricing. Shifting every FX rate by one percent changes nothing in a USD-only swap: there is no foreign leg to convert, no cross-currency notional, nothing the bump can reach. So the finite difference is zero — not small, zero. That is worth seeing at least once, because an exact zero where you expect one is evidence the sensitivity is measuring something real about the trade rather than picking up simulation noise."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 8000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "FXForward",
+        "trade_id": "S2-RENTON-FXFWD",
+        "counterparty_id": "SEN-CMD",
+        "notional": 4500000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "base_currency": "EUR",
+        "quote_currency": "USD",
+        "contract_rate": 1.0825,
+        "direction": "buy_base"
+      },
+      "coaching": "Renton Commodities is Calder's twin — check the dossier and you will find the same balance sheet, the same issuer curve, the same distance-to-default and PD. It wants a five-year EURUSD forward at the current outright, in its own master agreement, so this netting set holds exactly one trade and the sensitivities describe that trade alone. Notice first how small the notional is next to the swap's for a similar peak PFE: five years of currency volatility on an unhedged forward goes a long way. Then read the sensitivity block against last round's. FX delta is no longer zero — it is by far the largest number on the panel, because the exposure here is spot drifting away from the rate you contracted at. DV01 has almost vanished, and what is left carries the opposite sign, because a rate bump reaches this trade only through the discount factors and the forward points rather than through the payoff. Now the interesting one. CS01 comes out well above the swap's even though the credit is identical and the peak PFE is close, and the reason is on the panel above it: compare the two EPE figures.",
+      "prediction": {
+        "prompt": "Renton has identical credit to Calder and this forward has a similar peak PFE — yet CS01 comes out more than twice the swap's. Why?",
+        "options": [
+          "An FX forward is inherently more credit-sensitive than a swap, so it attracts a larger credit charge",
+          "CVA is charged on exposure averaged over the whole life, not on the peak, and the forward's EPE is far higher relative to its peak",
+          "The bump is applied to the EUR curve as well as the USD curve, which doubles the measured sensitivity"
+        ],
+        "correct_index": 1,
+        "explanation": "CS01 is the CVA moving, and CVA is built from expected exposure at every date — effectively the EPE — not from the single worst point. The two profiles have very different shapes: a swap's exposure peaks and then amortises away as payments fix and the remaining term shortens, so its EPE is only about 8% of its peak. A forward has one cash flow at maturity and nothing amortises, so exposure keeps building and its EPE is nearer 19% of its peak. Same credit curve, same peak, more than twice the average exposure to charge for. This is also why a limit set on peak PFE and a price set on CVA are answering two different questions about the same trade."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 8000000.0
+      }
+    }
+  ],
+  "defaults": []
+}

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "Credit default swaps: who are you actually exposed to?",
+    "description": "A credit default swap has two credits in it, and only one of them is your counterparty. You are offered identical protection on the same reference name by a weak dealer and by a strong bank, so the exposure is the same and only the credit behind it differs. Then credit sells off, the weak dealer fails, and you sell protection back into the same netting set to see the direction of the risk reverse.",
+    "n_rounds": 2,
+    "tutorial": true,
+    "intro": "Every deal so far has had one credit in it: the client's. A credit default swap has two. There is the reference entity, whose default the contract pays out on, and there is the counterparty who owes you that payout. They are different firms and they create different risks, and the workbench only ever underwrites one of them: the counterparty. Keep this straight as you go. When you buy protection you pay a premium and the contract gains value as the reference name's spread widens — and a contract that has gained value is money your counterparty owes you, which is counterparty exposure. Read the Counterparty panel for the firm you are facing, not for the name written into the trade. This round two dealers offer you exactly the same contract, so any difference in the numbers is a difference in them.",
+    "outro": "Two identical contracts, one reference name, and the underwriting answer came entirely from the counterparty. Same notional, same maturity, same reference entity, so the exposure profiles came out identical — and the credit charge on the weak dealer was still more than three times the charge on the strong bank. Then Ridgeway failed in the very sell-off that made your protection valuable, which is the uncomfortable truth about buying protection from a weak seller: the contract is worth most to you at the moment the firm owing it is least able to pay. And selling protection back to Corvus reversed the direction of the risk and netted down the exposure you had with them, because a master agreement nets credit positions the same way it nets rates. The reference entity sets the payoff. The counterparty decides whether you collect it.",
+    "learning_objectives": [
+      "Separate the reference entity of a CDS from the counterparty you are underwriting.",
+      "See that bought protection creates counterparty exposure when the reference spread widens.",
+      "Compare two identical contracts and attribute the whole difference in CVA to the counterparty.",
+      "Recognize that protection bought from a weak seller is worth less than protection bought from a strong one.",
+      "See how selling protection reverses the direction of the risk and nets within the master agreement."
+    ]
+  },
+  "settings": {
+    "seed": 7731,
+    "n_paths": 500,
+    "n_steps": 6,
+    "horizon": 1.0,
+    "lgd": 0.6,
+    "own_credit_spread": 0.004,
+    "own_recovery": 0.4,
+    "funding_spread": 0.0,
+    "wwr_correlation": 0.0,
+    "kappa_rate": 0.1,
+    "kappa_credit": 0.3,
+    "credit_vol": 0.5,
+    "compute_sensitivities": false
+  },
+  "counterparties": [
+    {
+      "counterparty": {
+        "counterparty_id": "CDS-DLR",
+        "name": "Ridgeway Securities",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "INITECH",
+        "internal_rating": "BB",
+        "financials": {
+          "total_assets": 5200.0,
+          "total_liabilities": 4750.0,
+          "current_assets": 2600.0,
+          "current_liabilities": 2900.0,
+          "retained_earnings": 180.0,
+          "ebit": 210.0,
+          "sales": 1900.0,
+          "market_equity": 560.0,
+          "equity_volatility": 0.6,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.35,
+      "credit_limit": 5000000.0,
+      "credit_path": [
+        {
+          "round": 1,
+          "spread_multiplier": 3.0,
+          "internal_rating": "CCC"
+        }
+      ]
+    },
+    {
+      "counterparty": {
+        "counterparty_id": "CDS-BNK",
+        "name": "Corvus Bank",
+        "sector": "Financials",
+        "ticker": null,
+        "cds_issuer": "GLOBEX",
+        "internal_rating": "A",
+        "financials": {
+          "total_assets": 14000.0,
+          "total_liabilities": 7200.0,
+          "current_assets": 7600.0,
+          "current_liabilities": 2900.0,
+          "retained_earnings": 4100.0,
+          "ebit": 2350.0,
+          "sales": 9200.0,
+          "market_equity": 10200.0,
+          "equity_volatility": 0.2,
+          "currency": "USD"
+        }
+      },
+      "recovery_rate": 0.4,
+      "credit_limit": 5000000.0,
+      "credit_path": []
+    }
+  ],
+  "market_path": [
+    {
+      "round": 0,
+      "spec": {
+        "name": "Base",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 0.0
+      }
+    },
+    {
+      "round": 1,
+      "spec": {
+        "name": "Credit spreads +80%",
+        "rate_shift_bps": 0.0,
+        "steepen_bps": 0.0,
+        "fx_shock_pct": 0.0,
+        "spread_widen_pct": 80.0
+      }
+    }
+  ],
+  "deal_stream": [
+    {
+      "round": 0,
+      "trade": {
+        "product": "CDS",
+        "trade_id": "D1-RIDGEWAY-CDS",
+        "counterparty_id": "CDS-DLR",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "reference_entity": "ACME",
+        "direction": "buy_protection",
+        "spread": 0.0148,
+        "premium_frequency": "quarterly",
+        "day_count": "act/360",
+        "recovery_rate": 0.4
+      },
+      "coaching": "Ridgeway Securities offers to sell you five-year protection on ACME at 148bp, the current par spread, so the contract is worth about nothing today. Read the Counterparty panel carefully and notice whose dossier it is: Ridgeway's, not ACME's. ACME is the name the contract pays out on; Ridgeway is the firm that has to make that payment, and Ridgeway is the only credit you are underwriting here. It is a thinly capitalised broker-dealer — liabilities almost equal to assets, current liabilities above current assets, equity volatility over 60% — and its own CDS trades several times wider than a strong bank's. Note the peak PFE and the CVA before you commit, because the very next deal is the identical contract from someone else. Take the trade, charge for the credit, and secure it.",
+      "prediction": {
+        "prompt": "You have bought protection on ACME from Ridgeway. When does this contract create counterparty exposure to Ridgeway?",
+        "options": [
+          "When ACME's credit spread widens, because the protection you hold gains value and Ridgeway owes you that gain",
+          "When ACME's credit spread tightens, because the premium you are paying becomes expensive relative to the market",
+          "Only if ACME actually defaults — before that the contract is worth nothing to either side"
+        ],
+        "correct_index": 0,
+        "explanation": "Bought protection is long credit risk in mark-to-market terms: as ACME's spread widens the protection is worth more than the 148bp you contracted to pay, and that positive value is a claim on Ridgeway. Counterparty exposure is just positive mark-to-market, and it does not wait for the reference entity to default. That is also the uncomfortable part — the contract is worth most to you exactly when credit conditions are bad, which is when a broker-dealer like Ridgeway is least able to pay."
+      },
+      "recommended": {
+        "action": "condition",
+        "require_collateral": true,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 0,
+      "trade": {
+        "product": "CDS",
+        "trade_id": "D2-CORVUS-CDS",
+        "counterparty_id": "CDS-BNK",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "reference_entity": "ACME",
+        "direction": "buy_protection",
+        "spread": 0.0148,
+        "premium_frequency": "quarterly",
+        "day_count": "act/360",
+        "recovery_rate": 0.4
+      },
+      "coaching": "Corvus Bank offers you the same protection, same day, same market: ACME five-year, twenty million, 148bp. Every economic term is identical to Ridgeway's offer, so this is as close to a controlled experiment as underwriting gets. Compare the two Consequences panels. Peak PFE comes out identical to the dollar, because it is a property of the contract and the market rather than of the seller. The CVA does not: it is that same exposure multiplied by the seller's default probability, and it lands at roughly a third of Ridgeway's charge. Check the evidence behind that in the dossier — Corvus carries a CDS spread near 88bp against Ridgeway's 308bp, a far wider distance-to-default and an equity cushion many times larger. The row 'CVA per unit of PFE' strips the deal size out so you can read the difference on credit alone. Approve it and leave it open.",
+      "prediction": {
+        "prompt": "Identical reference entity, notional, maturity and spread as the Ridgeway trade, on the same day — but faced with Corvus instead. What do you expect?",
+        "options": [
+          "A similar peak PFE but a materially smaller CVA, because the exposure comes from the contract while the credit charge comes from the counterparty",
+          "A much smaller peak PFE and a similar CVA, because a strong bank generates less exposure",
+          "Both roughly unchanged, since the reference entity and the trade economics are the same"
+        ],
+        "correct_index": 0,
+        "explanation": "Peak PFE is a property of the trade and the market: the same CDS on the same reference name in the same session generates much the same exposure profile whoever sold it to you. CVA is that exposure multiplied by the counterparty's default probability, so swapping a weak broker-dealer for an A-rated bank cuts the charge while leaving the exposure alone. Keeping the two numbers separate is the habit worth building — one tells you how big the position is, the other tells you what the credit behind it costs."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 5000000.0
+      }
+    },
+    {
+      "round": 1,
+      "trade": {
+        "product": "CDS",
+        "trade_id": "D3-CORVUS-CDS-SELL",
+        "counterparty_id": "CDS-BNK",
+        "notional": 20000000.0,
+        "currency": "USD",
+        "trade_date": "2025-06-30",
+        "maturity_date": "2030-06-30",
+        "reference_entity": "ACME",
+        "direction": "sell_protection",
+        "spread": 0.0266,
+        "premium_frequency": "quarterly",
+        "day_count": "act/360",
+        "recovery_rate": 0.4
+      },
+      "coaching": "Credit has sold off hard: every spread in the market is 80% wider and ACME now trades around 266bp. Your bought protection from Corvus has gained, which means Corvus owes you money and your exposure to them has grown. Now Corvus asks to buy protection back from you at the new par spread. Selling protection makes you short credit — you gain when spreads tighten and lose when they widen, the exact mirror of what you already hold. And it sits in the same master agreement as the Corvus trade from last round, so the two marks move against each other and net. Ignore the standalone peak PFE for a moment and read the 'Netting set before this trade' and 'Incremental exposure' rows instead: they are the ones that tell you what this deal does to your actual risk.",
+      "prediction": {
+        "prompt": "You already hold bought protection on ACME from Corvus. You now sell protection on the same name back to Corvus, in the same netting set. What should the incremental exposure show?",
+        "options": [
+          "Roughly double the existing exposure, because you now run two CDS positions with the same counterparty",
+          "Small or negative, because the two positions move in opposite directions and net against each other",
+          "Unchanged, because exposure is measured trade by trade rather than across the netting set"
+        ],
+        "correct_index": 1,
+        "explanation": "Exposure is measured on the net mark-to-market of the master agreement, not trade by trade. Bought and sold protection on the same reference name move in opposite directions, so when ACME's spread moves the two marks largely cancel and the netting set barely responds. That is the netting principle applied to credit rather than to rates: adding a position to a netting set can reduce the exposure in it, and the incremental figure is the only number that tells you whether it did."
+      },
+      "recommended": {
+        "action": "approve",
+        "require_collateral": false,
+        "csa_threshold": 0.0,
+        "csa_mta": 0.0,
+        "csa_initial_margin": 0.0,
+        "csa_mpor_days": 10,
+        "limit": 5000000.0
+      }
+    }
+  ],
+  "defaults": [
+    {
+      "round": 1,
+      "counterparty_id": "CDS-DLR",
+      "coaching": "Ridgeway Securities has failed, in the same sell-off that made your protection on ACME valuable. That is the shape of the problem with buying protection from a weak seller: the contract was worth most to you at exactly the moment the firm owing it went under. If you secured the trade, the margin was already posted and the loss is zero. If you did not, look at what you lost — and note that you also no longer hold any protection on ACME through Ridgeway, because a defaulted counterparty's contract pays nothing. Protection is only as good as the balance sheet standing behind it."
+    }
+  ]
+}

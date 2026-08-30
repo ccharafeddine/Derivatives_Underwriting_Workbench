@@ -10,6 +10,14 @@ is pure and headlessly testable.
 
 from __future__ import annotations
 
+from duw.scenario.campaign import (
+    CAMPAIGN,
+    Campaign,
+    CampaignProgress,
+    CampaignStage,
+    StageRecord,
+    medal,
+)
 from duw.scenario.engine import ScenarioEngine, run_scenario
 from duw.scenario.io import (
     ScenarioError,
@@ -30,6 +38,7 @@ from duw.scenario.model import (
     DefaultEvent,
     DefaultOutcome,
     MarketRound,
+    Prediction,
     Scenario,
     ScenarioCounterparty,
     ScenarioMeta,
@@ -46,6 +55,10 @@ from duw.scenario.scoring import (
 )
 
 __all__ = [
+    "CAMPAIGN",
+    "Campaign",
+    "CampaignProgress",
+    "CampaignStage",
     "CreditState",
     "DealArrival",
     "Decision",
@@ -54,6 +67,7 @@ __all__ = [
     "DefaultEvent",
     "DefaultOutcome",
     "MarketRound",
+    "Prediction",
     "RoundScore",
     "Scenario",
     "ScenarioCounterparty",
@@ -67,8 +81,10 @@ __all__ = [
     "Scorer",
     "ScoringParams",
     "SimSettings",
+    "StageRecord",
     "load_bundled_scenario",
     "load_scenario",
+    "medal",
     "run_scenario",
     "save_scenario",
     "scenario_from_dict",
