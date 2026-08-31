@@ -2,7 +2,7 @@
 
 ``SettingsDialog`` edits the Monte Carlo and credit defaults and the update-check
 preference, backed by :class:`AppSettings`. ``show_about`` shows the version and
-the full disclaimer, sourced from the single canonical :data:`DISCLAIMER`
+the full disclaimer, sourced from the canonical :data:`APP_DISCLAIMER`
 constant so the app and the generated memos never drift.
 """
 
@@ -43,7 +43,7 @@ from duw.config import (
     AppSettings,
 )
 from duw.glossary import GLOSSARY
-from duw.reports.interpreter import DISCLAIMER
+from duw.reports.interpreter import APP_DISCLAIMER
 from duw.ui.help import control_help
 from duw.ui.tooltips import (
     add_help_badges,
@@ -192,9 +192,13 @@ def about_text() -> str:
     return (
         f"<b>Derivatives Underwriting Workbench</b> v{__version__}<br><br>"
         "An educational portfolio project that reconstructs the counterparty-"
-        "credit underwriting workflow for OTC derivatives. It runs on synthetic "
-        "and public data only.<br><br>"
-        f"<i>{DISCLAIMER}</i>"
+        "credit underwriting workflow for OTC derivatives: exposure (EE / EPE / "
+        "PFE), collateral under a CSA, limits, and the credit-risk pricing "
+        "(CVA / DVA / BCVA / FVA, with wrong-way risk) that sits on top. The "
+        "Simulator turns the same workflow into a 17-stage campaign you play "
+        "deal by deal and are scored on. It runs on synthetic and public data "
+        "only.<br><br>"
+        f"<i>{APP_DISCLAIMER}</i>"
     )
 
 

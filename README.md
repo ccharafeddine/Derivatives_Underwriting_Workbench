@@ -21,6 +21,12 @@ effect of collateral, reports risk sensitivities, and produces an underwriting
 memo with a recommendation. Each stage is exposed rather than black-boxed, so
 you can change an input and watch the output respond.
 
+You can also **play** the workflow rather than only inspect it. The Simulator is
+a 17-stage campaign that runs in dependency order: deals arrive round by round,
+you underwrite them, time advances, counterparties migrate in credit quality and
+some default, and you live with the consequences of earlier decisions — scored
+against the scenario's own best play.
+
 Built with PySide6/Qt6. Runs fully offline on a bundled synthetic market
 snapshot; can optionally pull public-company financials for counterparty credit
 analysis.
@@ -243,6 +249,11 @@ respond before you commit.
 
 ![Simulator collateral terms](docs/images/simulator-collateral.png)
 
+The closing debrief: the run scored against the scenario's own best play, graded
+skill by skill, with the next stage unlocked.
+
+![Simulator debrief](docs/images/simulator-debrief.png)
+
 ---
 
 ## How it teaches
@@ -254,10 +265,17 @@ The learning scaffolding is a first-class part of the app, not incidental UI:
   loads a complete, runnable scenario so a newcomer can go from launch to a full
   analysis in a single click and start from a worked example rather than a blank
   form.
-- **Role-play simulator with a guided tutorial** (the Simulator tab) — learn the
-  whole workflow by playing it: decide on a deal, live with the consequences as
-  time advances, and, in guided mode, get coached through each step and graded
-  against a best-play benchmark.
+- **A 17-stage campaign** (the Simulator tab) — learn the whole workflow by
+  playing it, in dependency order, with each stage unlocked by clearing the one
+  before it. Stages that introduce a mechanism are coached; stages that ask you
+  to apply one are not, and the capstone is unaided however late it falls.
+- **Predict-then-reveal** — on a guided stage the analytics stay hidden until
+  you commit to what you expect them to show, so you discover what you actually
+  believe instead of nodding along to a number already on screen.
+- **Scored against best play, skill by skill** — every run is compared with the
+  scenario author's own reference decisions and graded on four things a desk is
+  judged on: protecting the book, pricing the credit, staying competitive, and
+  respecting the limit. Medals and progress persist between sessions.
 - **Glossary** (**Help → Glossary**) — a plain-English definition of every term
   the app reports (EE, EPE, PFE, CVA/DVA/FVA, DtD, CSA, MPoR, and more).
 - **Learning tooltips** — a plain-English tooltip on every workflow tab and on
@@ -354,12 +372,16 @@ To build a native desktop binary (`.msi` / `.dmg`), see
 
 ## Scope
 
-v1.0.0 covers five products (interest rate swap, FX forward, credit default
+The app covers five products (interest rate swap, FX forward, credit default
 swap, European swaption, fixed-for-fixed cross-currency swap); counterparty
 credit via Merton and Altman; Monte Carlo exposure with EE/EPE/PFE; collateral
 modeling with a CSA, MPoR, and multi-currency FX haircut; CVA, DVA, BCVA, FVA,
 and an optional wrong-way-risk tilt; DV01/CS01/FX-delta sensitivities; scenario
 stress testing; limit checking; the underwriting memo; and the deal pipeline.
+
+The 17-stage campaign teaches every one of those products and XVA terms in
+dependency order, so the teaching layer and the quantitative layer cover the
+same ground.
 
 Further quantitative extension points left for later include other XVA terms
 (KVA/MVA), additional products (caps/floors), and richer multi-curve
