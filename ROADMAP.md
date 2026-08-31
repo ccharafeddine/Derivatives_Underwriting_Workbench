@@ -71,9 +71,43 @@ CI, released as **v1.0.0**.
 5. **v1.0.0 release** ✅ — version 1.0.0, packaged bundle rebuilt and verified
    (`--selftest` + GUI launch), GitHub Release cut.
 
-## Beyond v1.0.0
+## v4 — shipped (v1.1.0)
+
+Turning the Simulator from a scenario picker into a taught course. Shipped with
+tests and green CI, released as **v1.1.0**.
+
+1. **The underwriting campaign** ✅ — 17 stages in dependency order
+   (`scenario/campaign.py`), each unlocked by clearing the one before it, with
+   medals and progress persisted to `~/.duw/campaign.json`
+   (`store/progress.py`). Stage order is the teaching order: the core decision,
+   then reading the credit evidence unaided, netting and the committee's limit,
+   calibrating the CSA, each product in turn, the funding and own-credit legs,
+   wrong-way risk, the sensitivity report, and an unaided capstone.
+2. **Full product and XVA coverage** ✅ — new bundled scenarios for credit
+   default swaps, collateral mechanics (threshold / MTA / initial margin /
+   MPoR), FVA and DVA, and DV01 / CS01 / FX delta, so the campaign teaches every
+   product and every adjustment the quantitative layer implements.
+3. **Guided stages** ✅ — a stage that introduces a mechanism is coached, with
+   the author's recommended decision and a predict-then-reveal question that
+   withholds the analytics until the learner commits to an expectation; a stage
+   that applies a known mechanism is unaided, and the capstone always is.
+4. **Scoring and debrief** ✅ — every run is scored against the scenario's own
+   best play (`scenario/coaching.py`) and graded on four desk skills, with a
+   round-by-round attribution of where ground was gained or lost.
+5. **Live decision controls** ✅ — the CSA threshold, MTA, initial margin,
+   margin period of risk and limit are dials that re-price the deal as they
+   move, with the exposure profile and consequence table responding before the
+   decision is committed.
+6. **v1.1.0 release** — version bumped to 1.1.0, README and About brought up to
+   date with fresh screenshots, and `--selftest` green from source (peak PFE
+   540,767, unchanged from v1.0.0). Still to do: rebuild the packaged bundle per
+   `PACKAGING.md`, verify it with `--selftest` and a GUI launch, and cut the
+   GitHub Release so the in-app update check reports correctly.
+
+## Beyond v1.1.0
 
 Further extension points: additional products (options, caps/floors); richer
 multi-curve construction (OIS discounting vs projection); other XVA terms
-(KVA/MVA); and code-signed, auto-updating release builds (needs a signing
-certificate).
+(KVA/MVA); interactive concept labs standing outside the deal flow; instructor
+mode for authoring and sharing scenarios and reviewing learner decisions; and
+code-signed, auto-updating release builds (needs a signing certificate).
