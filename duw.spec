@@ -19,8 +19,11 @@ for package in ("PySide6", "plotly"):
     binaries += pkg_binaries
     hiddenimports += pkg_hidden
 
-# Bundle the synthetic market snapshot and seed counterparties.
-datas += collect_data_files("duw", includes=["data/*.json"])
+# Bundle the synthetic market snapshot, seed counterparties, and the campaign
+# scenarios. The scenarios live in a subdirectory, and "data/*.json" does not
+# recurse: with that pattern alone every bundled scenario was silently dropped
+# and the Simulator shipped with an empty campaign.
+datas += collect_data_files("duw", includes=["data/*.json", "data/scenarios/*.json"])
 
 # reportlab / kaleido carry data files used by the report path.
 datas += collect_data_files("reportlab")

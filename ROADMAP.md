@@ -99,10 +99,11 @@ tests and green CI, released as **v1.1.0**.
    move, with the exposure profile and consequence table responding before the
    decision is committed.
 6. **v1.1.0 release** — version bumped to 1.1.0, README and About brought up to
-   date with fresh screenshots, and `--selftest` green from source (peak PFE
-   540,767, unchanged from v1.0.0). Still to do: rebuild the packaged bundle per
-   `PACKAGING.md`, verify it with `--selftest` and a GUI launch, and cut the
-   GitHub Release so the in-app update check reports correctly.
+   date with fresh screenshots, and the packaged bundle rebuilt and verified:
+   `--selftest` green from the bundle (peak PFE 540,767, unchanged from v1.0.0,
+   campaign 17/17 stages) and the GUI launches. Building it caught `duw.spec`
+   dropping every campaign scenario, fixed here. Still to do: cut the GitHub
+   Release so the in-app update check reports correctly.
 
 ## Beyond v1.1.0
 
