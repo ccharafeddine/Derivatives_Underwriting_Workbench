@@ -40,7 +40,7 @@ from duw.risk.cva import (
     expected_exposures_from_cube,
     wrong_way_adjusted_ee,
 )
-from duw.risk.exposure import ExposureEngine
+from duw.risk.exposure import ExposureEngine, reporting_currency
 from duw.risk.limits import limit_check_from_peaks
 
 # A very large threshold that leaves exposure entirely uncollateralized.
@@ -178,7 +178,15 @@ class Orchestrator:
         # Step 7 — collateral (CSA).
         self._emit(7, _STEPS[7])
         csa = self._build_csa(cfg)
-        collateral = compute_collateral(cube, grid, csa)
+        collateral = compute_collateral(
+            cube, grid, csa, exposure_currency=engine.reporting_currency
+        )
+        if engine.converted_currencies:
+            converted = ", ".join(engine.converted_currencies)
+            results.log(
+                f"Converted mark-to-market in {converted} into "
+                f"{engine.reporting_currency} at the simulated FX spot."
+            )
         results.collateral = collateral
         results.log(
             f"Collateralized peak PFE {collateral.peak_pfe_collateralized:,.0f} "
@@ -244,8 +252,7 @@ class Orchestrator:
         )
 
     def _reporting_currency(self, netting_set: NettingSet) -> str:
-        currencies = netting_set.currencies
-        return currencies[0] if currencies else "USD"
+        return reporting_currency(netting_set) or "USD"
 
     def _compute_cva(
         self,

@@ -270,7 +270,17 @@ class ScenarioEngine:
         csa = self._governing_csa.get(
             cp.counterparty_id, CSA(threshold=_OPEN_THRESHOLD)
         )
-        residual = float(np.maximum(apply_csa(cube, grid, csa)[:, 0], 0.0).mean())
+        residual = float(
+            np.maximum(
+                apply_csa(
+                    cube,
+                    grid,
+                    csa,
+                    exposure_currency=engine.reporting_currency,
+                )[:, 0],
+                0.0,
+            ).mean()
+        )
         collateral_held = max(exposure_at_default - residual, 0.0)
         realized_loss = (1.0 - cp.recovery_rate) * residual
 

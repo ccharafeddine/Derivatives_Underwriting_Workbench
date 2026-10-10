@@ -25,7 +25,13 @@ from PySide6.QtWidgets import (
 )
 
 from duw.domain.results import AnalysisResults, CollateralResult
-from duw.risk.collateral import CSA, compute_collateral
+from duw.risk.collateral import (
+    CSA,
+    collateral_model_note,
+    compute_collateral,
+    effective_fx_haircut,
+)
+from duw.risk.exposure import reporting_currency
 from duw.ui.help import control_help
 from duw.ui.widgets.analytics_panel import side_panel
 from duw.ui.widgets.charts import collateral_figure
@@ -53,6 +59,7 @@ class CollateralTab(QWidget):
         super().__init__()
         self._cube = None
         self._grid: tuple[float, ...] = ()
+        self._exposure_currency = ""
 
         self.threshold = _amount_spin(250_000.0)
         self.mta = _amount_spin(50_000.0)
@@ -118,6 +125,7 @@ class CollateralTab(QWidget):
     def set_results(self, results: AnalysisResults) -> None:
         """Store the cube/grid and render collateral for the current CSA."""
         self._cube = results.net_mtm_cube
+        self._exposure_currency = reporting_currency(results.netting_set)
         self._grid = (
             results.collateral.time_grid if results.collateral is not None else ()
         )
@@ -137,7 +145,12 @@ class CollateralTab(QWidget):
     def _recompute(self) -> None:
         if self._cube is None or not self._grid:
             return
-        result = compute_collateral(self._cube, self._grid, self.current_csa())
+        result = compute_collateral(
+            self._cube,
+            self._grid,
+            self.current_csa(),
+            exposure_currency=self._exposure_currency,
+        )
         self._render(result)
 
     def _render(self, collateral: CollateralResult) -> None:
@@ -163,29 +176,42 @@ class CollateralTab(QWidget):
             ("MPoR (days)", str(collateral.mpor_days)),
         ]
         if collateral.fx_haircut:
+            applied = effective_fx_haircut(
+                CSA(
+                    collateral_currency=collateral.collateral_currency,
+                    fx_haircut=collateral.fx_haircut,
+                ),
+                collateral.exposure_currency or self._exposure_currency,
+            )
             rows.append(
                 (
-                    f"FX haircut ({collateral.collateral_currency})",
-                    f"{collateral.fx_haircut:.0%}",
+                    f"FX haircut ({collateral.collateral_currency or 'unset'})",
+                    f"{applied:.0%}" if applied else "not applied",
                 )
             )
         self.table.set_metrics(rows)
         self.commentary.setText(self._commentary(collateral, reduction))
 
-    @staticmethod
-    def _commentary(collateral: CollateralResult, reduction: float) -> str:
+    def _commentary(self, collateral: CollateralResult, reduction: float) -> str:
+        note = collateral_model_note(
+            collateral_currency=collateral.collateral_currency,
+            fx_haircut=collateral.fx_haircut,
+            exposure_currency=collateral.exposure_currency or self._exposure_currency,
+        )
         if math.isnan(reduction) or reduction <= 0.005:
-            return (
+            body = (
                 "With these CSA terms, collateral has a negligible effect: the "
                 "threshold is high enough that little or nothing is collateralized. "
                 "Lower the threshold to secure more of the exposure."
             )
-        return (
-            f"Collateral cuts peak exposure by {reduction:.0%}, from "
-            f"{_money(collateral.peak_pfe_uncollateralized)} to "
-            f"{_money(collateral.peak_pfe_collateralized)}. The residual is what "
-            f"can still build during the {collateral.mpor_days}-day margin period "
-            "of risk (the gap before collateral is collected after a default). "
-            "Lower the threshold to collateralize more; a longer MPoR leaves more "
-            "residual exposure."
-        )
+        else:
+            body = (
+                f"Collateral cuts peak exposure by {reduction:.0%}, from "
+                f"{_money(collateral.peak_pfe_uncollateralized)} to "
+                f"{_money(collateral.peak_pfe_collateralized)}. The residual is what "
+                f"can still build during the {collateral.mpor_days}-day margin period "
+                "of risk (the gap before collateral is collected after a default). "
+                "Lower the threshold to collateralize more; a longer MPoR leaves more "
+                "residual exposure."
+            )
+        return f"{body} {note}"

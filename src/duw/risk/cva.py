@@ -3,11 +3,13 @@
 Prices the counterparty's default risk from the exposure profile, the survival
 curve, and discounting. Unilateral CVA (a cost to us) is
 
-    CVA = LGD * sum_i DF(t_i) * EE(t_i) * mPD_i
+    CVA = LGD * sum_i DF(t_i) * EE_avg_i * mPD_i
 
 where ``mPD_i = S(t_{i-1}) - S(t_i)`` is the counterparty's unconditional
-default probability over interval ``i`` from its survival curve, and ``EE`` is
-expected (positive) exposure. DVA (a benefit to us, from our own possible
+default probability over interval ``i`` from its survival curve, ``EE`` is
+expected (positive) exposure, and ``EE_avg_i = (EE(t_{i-1}) + EE(t_i)) / 2``
+averages the exposure at the two ends of the interval so the sum is less
+sensitive to the time grid. DVA (a benefit to us, from our own possible
 default) is the symmetric leg on expected negative exposure ``ENE`` with our own
 survival curve and LGD. The bilateral net is ``BCVA = CVA - DVA``. FVA is the
 funding valuation adjustment on the net uncollateralized exposure.
@@ -78,9 +80,11 @@ def compute_fva(
     """Funding valuation adjustment on the net uncollateralized exposure.
 
     Simplified symmetric FVA:
-    ``FVA = s_F * sum_i DF(t_i) * (EE - ENE)_avg * dt_i`` — the funding cost of
-    positive exposure net of the benefit of negative exposure. ``0`` when the
-    funding spread is ``0``.
+    ``FVA = s_F * sum_i DF(t_i) * (EE - ENE)_avg * dt_i`` — one funding spread
+    applied to the average net exposure on each interval (the funding cost of
+    positive exposure net of the benefit of negative exposure). This is not a
+    two-spread funding/borrowing split. ``0`` when the funding spread is ``0``.
+    The memo states this simplification in plain text.
     """
     grid = np.asarray(time_grid, dtype=float)
     ee_a = np.asarray(ee, dtype=float)
@@ -117,9 +121,12 @@ def _adjustment_leg(
     survival: SurvivalCurve,
     lgd: float,
 ) -> tuple[float, np.ndarray]:
-    """Discounted expected-loss leg: LGD * sum DF * exposure * marginal PD.
+    """Discounted expected-loss leg: LGD * sum DF * averaged exposure * mPD.
 
-    Returns the total and the per-interval contributions aligned to
+    Exposure on interval ``i`` is the average of the values at ``t_{i-1}`` and
+    ``t_i`` (trapezoid in time), discounted at the end of the interval. Using
+    only the end-of-period exposure makes the total jump when the grid is
+    refined. Returns the total and the per-interval contributions aligned to
     ``time_grid`` (index 0 is 0 since the first interval starts at ``t_0``).
     """
     grid = np.asarray(time_grid, dtype=float)
@@ -130,7 +137,8 @@ def _adjustment_leg(
         s_curr = survival.survival(float(grid[i]))
         marginal_pd = s_prev - s_curr
         df = discount_curve.df(float(grid[i]))
-        contrib[i] = lgd * df * float(exp[i]) * marginal_pd
+        averaged = 0.5 * (float(exp[i]) + float(exp[i - 1]))
+        contrib[i] = lgd * df * averaged * marginal_pd
         s_prev = s_curr
     return float(contrib.sum()), contrib
 

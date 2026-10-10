@@ -11,7 +11,12 @@ from duw.data.loader import load_market_snapshot
 from duw.domain.instruments import IRS, NettingSet, SwapDirection
 from duw.domain.market import CreditCurve
 from duw.pricing.curves import DiscountCurve, SurvivalCurve
-from duw.risk.collateral import CSA, apply_csa, compute_collateral
+from duw.risk.collateral import (
+    CSA,
+    apply_csa,
+    compute_collateral,
+    effective_fx_haircut,
+)
 from duw.risk.cva import (
     compute_bcva,
     compute_cva,
@@ -60,6 +65,31 @@ def test_cva_rises_with_pd() -> None:
     tight, _ = compute_cva(grid, ee, _usd_curve(), _survival(0.005), lgd=0.6)
     wide, _ = compute_cva(grid, ee, _usd_curve(), _survival(0.030), lgd=0.6)
     assert wide > tight
+
+
+def test_cva_averages_exposure_across_the_interval() -> None:
+    # Rising exposure: the interval average is below the end-point value, so
+    # averaging must produce a smaller CVA than using EE at the interval end.
+    grid = (0.0, 1.0, 2.0)
+    ee = np.array([0.0, 100.0, 300.0])
+    curve, surv = _usd_curve(), _survival(0.02)
+    cva, contrib = compute_cva(grid, ee, curve, surv, lgd=0.6)
+    s_prev = surv.survival(float(grid[0]))
+    expected = 0.0
+    end_only = 0.0
+    for i in range(1, len(grid)):
+        s_curr = surv.survival(float(grid[i]))
+        marginal = s_prev - s_curr
+        df = curve.df(float(grid[i]))
+        averaged = 0.5 * (float(ee[i]) + float(ee[i - 1]))
+        piece = 0.6 * df * averaged * marginal
+        expected += piece
+        end_only += 0.6 * df * float(ee[i]) * marginal
+        assert contrib[i] == pytest.approx(piece)
+        s_prev = s_curr
+    assert contrib[0] == 0.0
+    assert cva == pytest.approx(expected)
+    assert cva < end_only
 
 
 def test_cva_scales_with_exposure() -> None:
@@ -229,16 +259,47 @@ def test_collateral_result_echoes_csa_parameters() -> None:
     assert len(result.ee_collateralized) == len(grid)
 
 
-def test_fx_haircut_reduces_collateral_mitigation() -> None:
+def test_fx_haircut_applies_only_when_currencies_differ() -> None:
     cube, grid = _exposure_cube()
-    same_ccy = compute_collateral(cube, grid, CSA(threshold=100_000.0, fx_haircut=0.0))
+    none = compute_collateral(
+        cube,
+        grid,
+        CSA(threshold=100_000.0, fx_haircut=0.0, collateral_currency="USD"),
+        exposure_currency="USD",
+    )
+    same_ccy = compute_collateral(
+        cube,
+        grid,
+        CSA(threshold=100_000.0, fx_haircut=0.15, collateral_currency="USD"),
+        exposure_currency="USD",
+    )
     cross_ccy = compute_collateral(
         cube,
         grid,
         CSA(threshold=100_000.0, fx_haircut=0.15, collateral_currency="EUR"),
+        exposure_currency="USD",
     )
-    # A haircut discounts collateral value, so residual exposure is higher.
+    unknown = compute_collateral(
+        cube,
+        grid,
+        CSA(threshold=100_000.0, fx_haircut=0.15, collateral_currency="EUR"),
+    )
+    # Same currency: the haircut is ignored, matching a zero haircut.
+    assert same_ccy.peak_pfe_collateralized == pytest.approx(
+        none.peak_pfe_collateralized
+    )
+    assert sum(same_ccy.ee_collateralized) == pytest.approx(sum(none.ee_collateralized))
+    # A different currency discounts collateral, so residual exposure is higher.
     assert cross_ccy.peak_pfe_collateralized >= same_ccy.peak_pfe_collateralized
     assert sum(cross_ccy.ee_collateralized) > sum(same_ccy.ee_collateralized)
+    # No exposure currency: do not apply the haircut silently.
+    assert sum(unknown.ee_collateralized) == pytest.approx(sum(none.ee_collateralized))
     assert cross_ccy.fx_haircut == 0.15
     assert cross_ccy.collateral_currency == "EUR"
+    assert cross_ccy.exposure_currency == "USD"
+    assert effective_fx_haircut(
+        CSA(fx_haircut=0.08, collateral_currency="usd"), "USD"
+    ) == pytest.approx(0.0)
+    assert effective_fx_haircut(
+        CSA(fx_haircut=0.08, collateral_currency="EUR"), "usd"
+    ) == pytest.approx(0.08)

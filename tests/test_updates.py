@@ -16,10 +16,20 @@ def test_parse_and_compare_versions() -> None:
     assert parse_version("v1.2.3") == (1, 2, 3)
     assert parse_version("0.1") == (0, 1, 0)
     assert parse_version("2.0.0-beta") == (2, 0, 0)
+    assert parse_version("1.2.3rc1") == (1, 2, 3)
     assert is_newer("0.2.0", "0.1.0")
     assert is_newer("1.0.0", "0.9.9")
     assert not is_newer("0.1.0", "0.1.0")
     assert not is_newer("0.1.0", "0.2.0")
+    # Numeric components, not lexicographic strings: "1.10" > "1.9",
+    # and "1.1.10" > "1.1.9". A pre-release suffix does not outrank the release.
+    assert is_newer("1.10.0", "1.9.0")
+    assert is_newer("1.1.10", "1.1.9")
+    assert is_newer("1.1.1", "1.1.0")
+    assert is_newer("1.2.3.1", "1.2.3")
+    assert not is_newer("1.2.3rc1", "1.2.3")
+    assert not is_newer("1.2.3", "1.2.3.0")
+    assert not is_newer("1.9.0", "1.10.0")
 
 
 def test_update_available() -> None:

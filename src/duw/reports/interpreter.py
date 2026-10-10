@@ -16,6 +16,7 @@ import math
 from dataclasses import dataclass
 
 from duw.domain.results import AnalysisResults
+from duw.risk.collateral import collateral_model_note
 
 #: The substance of the disclaimer, shared by every surface that shows one so
 #: the wording cannot drift between them. Only the opening sentence and the
@@ -111,15 +112,21 @@ def interpret_collateral(results: AnalysisResults) -> str:
         return "No collateral analysis is available."
     unc = col.peak_pfe_uncollateralized
     coll = col.peak_pfe_collateralized
+    note = collateral_model_note(
+        collateral_currency=col.collateral_currency,
+        fx_haircut=col.fx_haircut,
+        exposure_currency=col.exposure_currency,
+    )
     if not math.isnan(unc) and unc > 0 and not math.isnan(coll):
         reduction = 1.0 - coll / unc
         return (
             f"Under the modelled CSA (threshold {_fmt(col.threshold)}, initial "
             f"margin {_fmt(col.initial_margin)}, {col.mpor_days}-day MPoR), peak "
             f"PFE falls from {_fmt(unc)} to {_fmt(coll)}, a {reduction:.0%} "
-            "reduction. Residual exposure reflects the margin period of risk."
+            "reduction. Residual exposure reflects the margin period of risk. "
+            f"{note}"
         )
-    return "Collateral has a negligible effect on the modelled exposure."
+    return "Collateral has a negligible effect on the modelled exposure. " + note
 
 
 def interpret_cva(results: AnalysisResults) -> str:
@@ -133,8 +140,13 @@ def interpret_cva(results: AnalysisResults) -> str:
         f"is {_fmt(cva.bcva)}. CVA is the market price of the counterparty's "
         "default risk over the life of the netting set."
     ]
-    if cva.fva:
-        parts.append(f"The funding valuation adjustment (FVA) is {_fmt(cva.fva)}.")
+    parts.append(
+        f"The funding valuation adjustment (FVA) is {_fmt(cva.fva)}. "
+        "FVA here is a simplification: one funding spread is applied "
+        "symmetrically to the average net exposure (expected positive minus "
+        "expected negative) on each interval, not separate funding and "
+        "borrowing spreads."
+    )
     if cva.wwr_correlation:
         direction = "wrong-way" if cva.wwr_correlation > 0 else "right-way"
         parts.append(

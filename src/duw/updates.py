@@ -37,12 +37,25 @@ class UpdateInfo:
 
 
 def parse_version(text: str) -> tuple[int, ...]:
-    """Parse a version string like ``v1.2.3`` into ``(1, 2, 3)``."""
+    """Parse a version string like ``v1.2.3`` into a tuple of integers.
+
+    Comparison is numeric per component, so ``1.10.0`` is newer than ``1.9.0``
+    and ``1.1.10`` is newer than ``1.1.9``. A leading ``v`` is ignored. A
+    pre-release suffix (``1.2.3rc1``, ``2.0.0-beta``) does not add extra digits
+    to the component it is attached to. At least three components are returned
+    so ``0.1`` compares as ``(0, 1, 0)``. Further components are kept, so
+    ``1.2.3.1`` is newer than ``1.2.3``.
+    """
     cleaned = text.strip().lstrip("vV")
     parts: list[int] = []
-    for chunk in cleaned.split(".")[:3]:
-        digits = "".join(ch for ch in chunk if ch.isdigit())
-        parts.append(int(digits) if digits else 0)
+    for chunk in cleaned.split("."):
+        digits: list[str] = []
+        for ch in chunk:
+            if ch.isdigit():
+                digits.append(ch)
+            else:
+                break
+        parts.append(int("".join(digits)) if digits else 0)
     while len(parts) < 3:
         parts.append(0)
     return tuple(parts)
@@ -50,7 +63,12 @@ def parse_version(text: str) -> tuple[int, ...]:
 
 def is_newer(latest: str, current: str) -> bool:
     """Whether ``latest`` is a strictly newer version than ``current``."""
-    return parse_version(latest) > parse_version(current)
+    left = parse_version(latest)
+    right = parse_version(current)
+    width = max(len(left), len(right))
+    left = left + (0,) * (width - len(left))
+    right = right + (0,) * (width - len(right))
+    return left > right
 
 
 def _default_fetch(url: str, timeout: float) -> dict:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import numpy as np
@@ -18,8 +19,8 @@ from duw.domain.instruments import (
     SwapDirection,
 )
 from duw.pricing.curves import DiscountCurve
-from duw.pricing.fx_forward import forward_rate_fx
-from duw.risk.exposure import ExposureEngine
+from duw.pricing.fx_forward import forward_rate_fx, price_fx_forward
+from duw.risk.exposure import ExposureEngine, MixedCurrencyError
 from duw.risk.simulators import simulate_fx_spot, simulate_ou, simulate_rate_shift
 
 AS_OF = date(2025, 6, 30)
@@ -198,3 +199,125 @@ def test_mixed_netting_set_runs() -> None:
     assert len(profile.ee) == len(profile.time_grid)
     assert profile.peak_pfe > 0.0
     assert np.isfinite(profile.epe)
+    # Quote currency matches the trade currency, so nothing is converted.
+    assert engine.converted_currencies == ()
+
+
+def _dated_irs(trade_id: str, currency: str, fixed_rate: float) -> IRS:
+    return IRS(
+        trade_id=trade_id,
+        counterparty_id="CP001",
+        notional=5_000_000.0,
+        currency=currency,
+        trade_date=AS_OF,
+        maturity_date=date(2030, 6, 30),
+        fixed_rate=fixed_rate,
+        direction=SwapDirection.RECEIVE_FIXED,
+    )
+
+
+def test_mixed_currency_irs_converts_at_the_spot() -> None:
+    snap = load_market_snapshot()
+    usd = _dated_irs("USD1", "USD", 0.02)
+    eur = _dated_irs("EUR1", "EUR", 0.01)
+    both = ExposureEngine(
+        NettingSet("NS", "CP001", (usd, eur)),
+        snap,
+    )
+    only_usd = ExposureEngine(NettingSet("NS", "CP001", (usd,)), snap)
+    only_eur = ExposureEngine(NettingSet("NS", "CP001", (eur,)), snap)
+    grid = (0.0,)
+    total = both.simulate_cube(grid, n_paths=1, seed=1)[0, 0]
+    usd_mtm = only_usd.simulate_cube(grid, n_paths=1, seed=1)[0, 0]
+    eur_mtm = only_eur.simulate_cube(grid, n_paths=1, seed=1)[0, 0]
+    assert both.reporting_currency == "USD"
+    assert both.converted_currencies == ("EUR",)
+    assert total == pytest.approx(usd_mtm + eur_mtm * snap.fx("EURUSD"))
+
+
+def test_conversion_uses_the_spot_it_is_given() -> None:
+    snap = load_market_snapshot()
+    eur = _dated_irs("EUR1", "EUR", 0.01)
+    usd = _dated_irs("USD1", "USD", 0.02)
+    engine = ExposureEngine(NettingSet("NS", "CP001", (usd, eur)), snap)
+    assert engine._to_reporting(10.0, "EUR", {"EURUSD": 2.0}) == pytest.approx(20.0)
+    assert engine._to_reporting(10.0, "EUR", {"EURUSD": 4.0}) == pytest.approx(40.0)
+
+
+def test_inverse_fx_pair_converts_the_same_way() -> None:
+    snap = load_market_snapshot()
+    direct = snap.fx("EURUSD")
+    inverted = replace(snap, fx_spot={"USDEUR": 1.0 / direct})
+    eur = _dated_irs("EUR1", "EUR", 0.01)
+    usd = _dated_irs("USD1", "USD", 0.02)
+    grid = (0.0,)
+    via_direct = ExposureEngine(NettingSet("NS", "CP001", (usd, eur)), snap)
+    via_inverse = ExposureEngine(NettingSet("NS", "CP001", (usd, eur)), inverted)
+    a = via_direct.simulate_cube(grid, n_paths=1, seed=1)[0, 0]
+    b = via_inverse.simulate_cube(grid, n_paths=1, seed=1)[0, 0]
+    assert a == pytest.approx(b)
+
+
+def test_mixed_currency_without_fx_raises() -> None:
+    snap = replace(load_market_snapshot(), fx_spot={})
+    usd = _dated_irs("USD1", "USD", 0.02)
+    eur = _dated_irs("EUR1", "EUR", 0.01)
+    with pytest.raises(MixedCurrencyError, match="EUR") as exc:
+        ExposureEngine(NettingSet("NS", "CP001", (usd, eur)), snap)
+    message = str(exc.value)
+    assert "USD" in message
+    assert "EURUSD" in message
+
+
+def test_fx_forward_quote_mtm_converts_into_the_trade_currency() -> None:
+    snap = load_market_snapshot()
+    fx = FXForward(
+        trade_id="FX1",
+        counterparty_id="CP001",
+        notional=1_000_000.0,
+        currency="EUR",
+        trade_date=AS_OF,
+        maturity_date=date(2027, 6, 30),
+        base_currency="EUR",
+        quote_currency="USD",
+        contract_rate=1.20,
+        direction=FxDirection.BUY_BASE,
+    )
+    engine = ExposureEngine(NettingSet("NS", "CP001", (fx,)), snap)
+    assert engine.reporting_currency == "EUR"
+    assert engine.converted_currencies == ("USD",)
+    cube = engine.simulate_cube((0.0,), n_paths=1, seed=1)
+    spot = snap.fx("EURUSD")
+    usd_mtm = price_fx_forward(
+        fx,
+        DiscountCurve.from_yield_curve(snap.curve("EUR")),
+        DiscountCurve.from_yield_curve(snap.curve("USD")),
+        spot,
+        AS_OF,
+        0.0,
+    )
+    assert cube[0, 0] == pytest.approx(usd_mtm / spot)
+
+
+def test_fast_discount_curve_matches_from_zero_rates() -> None:
+    engine = ExposureEngine(_irs_netting_set(), load_market_snapshot())
+    probes = (0.0, 0.1, 0.25, 1.0, 4.5, 10.0, 30.0)
+    for shift in (0.0, 1e-6, -0.002, 0.01, 0.123456789):
+        fast = engine._discount_curve("USD", shift)
+        slow = DiscountCurve.from_zero_rates(*engine._curve_args("USD", shift))
+        for t in probes:
+            assert fast.df(t) == slow.df(t)
+        assert fast.forward_simple_rate(1.0, 1.5) == slow.forward_simple_rate(1.0, 1.5)
+
+
+def test_cached_curves_do_not_change_the_cube() -> None:
+    engine = ExposureEngine(_irs_netting_set(), load_market_snapshot())
+    grid = engine.build_time_grid(3)
+    fast = engine.simulate_cube(grid, n_paths=12, seed=4)
+
+    def slow(ccy: str, shift: float) -> DiscountCurve:
+        return DiscountCurve.from_zero_rates(*engine._curve_args(ccy, shift))
+
+    engine._discount_curve = slow  # type: ignore[method-assign]
+    reference = engine.simulate_cube(grid, n_paths=12, seed=4)
+    assert np.array_equal(fast, reference)

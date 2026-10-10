@@ -8,7 +8,7 @@ import pytest
 
 from duw.credit.altman import AltmanZone, altman_z, classify_zone
 from duw.credit.merton import merton_from_financials, solve_merton
-from duw.credit.public_data import fetch_financials
+from duw.credit.public_data import fetch_financials, live_data_import_error
 from duw.credit.rating import (
     DEFAULT_PD_TENORS,
     assess_counterparty,
@@ -85,6 +85,32 @@ def test_merton_degenerate_inputs_fall_back() -> None:
     )
     assert res.converged is False
     assert res.pd == pytest.approx(1.0)
+    # Even the certain-default asset value uses discounted debt.
+    assert res.asset_value == pytest.approx(2000.0 * exp(-0.04))
+
+
+def test_merton_fallback_discounts_debt() -> None:
+    # Zero equity vol skips the solver and uses V = E + D exp(-rT).
+    horizon = 2.0
+    rate = 0.05
+    equity, debt = 1000.0, 500.0
+    res = solve_merton(
+        equity_value=equity,
+        equity_vol=0.0,
+        debt=debt,
+        risk_free_rate=rate,
+        horizon=horizon,
+    )
+    undiscounted = solve_merton(
+        equity_value=equity,
+        equity_vol=0.0,
+        debt=debt,
+        risk_free_rate=0.0,
+        horizon=horizon,
+    )
+    assert res.converged is False
+    assert res.asset_value == pytest.approx(equity + debt * exp(-rate * horizon))
+    assert res.asset_value < undiscounted.asset_value
 
 
 def test_merton_from_financials() -> None:
@@ -188,3 +214,22 @@ def test_fetch_financials_none_ticker_is_none_without_network() -> None:
     assert fetch_financials(None) is None
     assert fetch_financials("") is None
     assert fetch_financials("   ") is None
+
+
+def test_missing_yfinance_explains_the_live_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocked(name, *args, **kwargs):
+        if name == "yfinance" or name.startswith("yfinance."):
+            raise ImportError("no module named yfinance")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked)
+    assert fetch_financials("AAPL") is None
+    message = live_data_import_error()
+    assert message is not None
+    assert "duw[live]" in message

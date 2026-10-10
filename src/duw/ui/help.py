@@ -158,8 +158,10 @@ CONTROL_HELP: dict[str, str] = {
         "during this gap, so a longer MPoR means collateral protects a bit less."
     ),
     "csa_fx_haircut": (
-        "A discount applied to collateral posted in a different currency than the "
-        "exposure, to buffer FX moves. 0 means single-currency collateral."
+        "A discount applied only when collateral is posted in a different currency "
+        "than the netting set, to buffer FX moves. It is ignored when the "
+        "currencies match. 0 means no haircut. The CSA model is one-way: it "
+        "counts collateral the counterparty posts, not collateral we would post."
     ),
     # Limits
     "limit": (
@@ -174,7 +176,9 @@ CONTROL_HELP: dict[str, str] = {
     ),
     "funding_bps": (
         "Your funding spread, in basis points, used for FVA — the cost of funding "
-        "the uncollateralized exposure over the trade's life."
+        "the uncollateralized exposure over the trade's life. One spread is "
+        "applied symmetrically to net exposure; the model does not split a "
+        "funding cost and a funding benefit into two different spreads."
     ),
     "wwr": (
         "Wrong-way risk correlation. Above 0, exposure tends to rise exactly as the "

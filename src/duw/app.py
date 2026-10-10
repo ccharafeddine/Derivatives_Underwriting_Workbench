@@ -19,6 +19,12 @@ def selftest() -> int:
     Exercises the numeric pipeline plus the plotly and reportlab report paths
     (the heavy bundled dependencies) without needing a display, so a packaged
     build can be checked with ``DerivativesUnderwritingWorkbench --selftest``.
+
+    It also loads every campaign scenario. Those are data files in a
+    subdirectory the spec has to collect explicitly, and a bundle that dropped
+    them still passed an analysis-only self-test while shipping a Simulator with
+    an empty campaign — so the check belongs here, where a broken bundle fails
+    loudly instead of being released.
     """
     import tempfile
     from datetime import date
@@ -28,6 +34,17 @@ def selftest() -> int:
     from duw.domain.instruments import IRS, NettingSet, SwapDirection
     from duw.pipeline.orchestrator import RunConfig, run_pipeline
     from duw.reports.memo import render_memo_html, write_memo_pdf
+    from duw.scenario.campaign import CAMPAIGN
+    from duw.scenario.io import ScenarioError, load_bundled_scenario
+
+    stages_ok = 0
+    missing: list[str] = []
+    for stage in CAMPAIGN:
+        try:
+            load_bundled_scenario(stage.scenario_name)
+            stages_ok += 1
+        except (ScenarioError, FileNotFoundError, ModuleNotFoundError, OSError):
+            missing.append(stage.scenario_name)
 
     counterparty = {c.counterparty_id: c for c in load_seed_counterparties()}["CP001"]
     trade = IRS(
@@ -50,13 +67,21 @@ def selftest() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         pdf = write_memo_pdf(results, Path(tmp) / "memo.pdf", include_charts=False)
         pdf_ok = pdf.exists() and pdf.read_bytes().startswith(b"%PDF")
+    campaign_ok = not missing
+    if missing:
+        print(
+            f"self-test FAILED: {len(missing)} campaign scenario(s) not bundled: "
+            f"{', '.join(missing)}"
+        )
     print(
-        f"self-test OK (v{__version__}): peak PFE "
+        f"self-test {'OK' if pdf_ok and campaign_ok else 'FAILED'} "
+        f"(v{__version__}): peak PFE "
         f"{results.exposure.peak_pfe:,.0f}, recommendation "
         f"{results.memo.recommendation}, memo HTML {len(html):,} bytes, "
-        f"PDF {'ok' if pdf_ok else 'FAILED'}"
+        f"PDF {'ok' if pdf_ok else 'FAILED'}, "
+        f"campaign {stages_ok}/{len(CAMPAIGN)} stages"
     )
-    return 0 if pdf_ok else 1
+    return 0 if (pdf_ok and campaign_ok) else 1
 
 
 def main(argv: list[str] | None = None) -> int:

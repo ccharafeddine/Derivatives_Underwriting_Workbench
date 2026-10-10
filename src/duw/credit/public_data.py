@@ -24,6 +24,21 @@ def _first_positive(*values: object) -> float | None:
     return None
 
 
+def live_data_import_error() -> str | None:
+    """Message when public financials cannot be fetched because yfinance is missing.
+
+    Returns ``None`` when the optional ``live`` extra is installed.
+    """
+    try:
+        import yfinance  # noqa: F401  # lazy: optional extra
+    except ImportError:
+        return (
+            "Public-company financials need the optional live extra "
+            '(pip install "duw[live]"). The values already on screen are unchanged.'
+        )
+    return None
+
+
 def fetch_financials(
     ticker: str | None,
     *,

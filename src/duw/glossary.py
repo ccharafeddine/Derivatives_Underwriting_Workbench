@@ -42,7 +42,9 @@ GLOSSARY: dict[str, str] = {
     ),
     "FVA": (
         "Funding Valuation Adjustment: the cost (or benefit) of funding the net "
-        "uncollateralized exposure over the trade's life, at a funding spread."
+        "uncollateralized exposure over the trade's life. This app uses one "
+        "funding spread, applied symmetrically to expected positive minus "
+        "expected negative exposure, not separate borrowing and lending spreads."
     ),
     "Wrong-way": (
         "Wrong-way risk: exposure tending to rise as the counterparty's credit "

@@ -17,6 +17,7 @@ from duw.reports.memo import (
     _exposure_rows,
     _figure_png,
     _trade_rows,
+    export_extra_message,
 )
 
 
@@ -58,11 +59,9 @@ def write_memo_pptx(results: AnalysisResults, path: str | Path) -> Path:
     # Exposure slide with commentary and chart.
     slide = prs.slides.add_slide(bullet_layout)
     slide.shapes.title.text = "Exposure"
-    _bullets(
-        slide.placeholders[1],
-        [f"{k}: {v}" for k, v in _exposure_rows(results)]
-        + [interpret_exposure(results)],
-    )
+    exposure_lines = [f"{k}: {v}" for k, v in _exposure_rows(results)] + [
+        interpret_exposure(results)
+    ]
     from duw.ui.widgets.charts import exposure_figure
 
     png = _figure_png(exposure_figure(results.exposure))
@@ -70,6 +69,11 @@ def write_memo_pptx(results: AnalysisResults, path: str | Path) -> Path:
         slide.shapes.add_picture(
             BytesIO(png), Inches(5.2), Inches(1.6), width=Inches(4.2)
         )
+    else:
+        note = export_extra_message()
+        if note:
+            exposure_lines.append(note)
+    _bullets(slide.placeholders[1], exposure_lines)
 
     # Recommendation slide.
     rec = recommend(results)

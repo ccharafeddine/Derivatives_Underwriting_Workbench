@@ -1,10 +1,14 @@
 # Derivatives Underwriting Workbench
 
+A desktop app that teaches the OTC derivatives counterparty-credit decision: exposure, collateral, limits, and CVA, on synthetic data.
+
 [![CI](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![Qt](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41cd52.svg)](https://doc.qt.io/qtforpython/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+[Releases](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/releases)
 
 **Purpose-built educational software that teaches the OTC derivatives
 counterparty-credit underwriting workflow** — suitable for a Master's-level
@@ -75,8 +79,10 @@ Assess the counterparty's creditworthiness. A KMV-style Merton model derives a
 distance-to-default and default probability from equity value and volatility; an
 Altman Z-score summarizes balance-sheet health; the two are mapped to an
 internal rating grade and a probability-of-default term structure. Enter a public
-ticker and **Fetch** pulls the company's financials via yfinance (offline-safe,
-degrading to synthetic data); private names come from the bundled synthetic set.
+ticker and **Fetch** pulls the company's financials via yfinance when the optional
+`live` extra is installed; if it is missing, offline, or the ticker is unknown,
+Fetch says so and keeps the values already on screen. Private names come from
+the bundled synthetic set.
 
 ![Counterparty tab](docs/images/counterparty.png)
 
@@ -313,10 +319,10 @@ Step  4  Reprice across time grid      MtM cube across trades, paths, and dates
 Step  5  Aggregate netting set         Net MtM per path and date
 Step  6  Compute exposure profile      EE, EPE, PFE (95/99), peak PFE, cone
 Step  7  Apply collateral (CSA)        Collateralized vs uncollateralized exposure
-Step  8  Compute CVA / DVA / BCVA      EE profile x marginal PD x discounting
+Step  8  Compute CVA / DVA / BCVA / FVA  EE profile x marginal PD x discounting
 Step  9  Check limits                  Utilization, headroom, incremental, breach
 Step 10  Interpret + generate memo     Commentary and recommendation
-Step 11  Save outputs                  Run config (JSON) + HTML/PDF/PPTX reports
+Step 11  Save outputs                  Run config (JSON) + HTML memo; PDF and PPTX from the Memo tab
 ```
 
 Every run is reproducible: the Monte Carlo seed and the full run configuration
@@ -328,9 +334,9 @@ are saved with the outputs.
 
 - **Python 3.11+**, **PySide6 / Qt6** (menu-bar desktop UI, `QSplitter` panels)
 - **numpy / pandas / scipy** for pricing, simulation, and credit models
-- **plotly** (+ **kaleido**) for charts; **reportlab** and **python-pptx** for reports
-- **pyarrow / parquet** for market-data caching
-- **yfinance** (optional) for public-company financials
+- **plotly** for charts; **reportlab** and **python-pptx** for reports
+- **kaleido** and **pyarrow** (optional `export` extra) for static chart images in PDF/PPTX; the bundled market snapshot is JSON, so the app runs without pyarrow
+- **yfinance** (optional `live` extra) for public-company financials
 - **ruff** and **pytest** for linting and headless testing
 
 Numeric models (`pricing/`, `risk/`, `credit/`, `pipeline/`) are pure Python
@@ -344,6 +350,8 @@ the app entry point, and the background worker.
 ```bash
 # create and activate a virtual environment, then:
 pip install -e ".[dev]"
+# optional: public financials, and static chart images in PDF/PPTX
+# pip install -e ".[dev,live,export]"
 
 # launch the app
 python -m duw.app

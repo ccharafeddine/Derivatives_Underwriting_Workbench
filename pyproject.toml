@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "duw"
-version = "1.1.0"
+# Version is single-sourced from duw.__version__ (src/duw/__init__.py).
+dynamic = ["version"]
 description = "Derivatives Underwriting Workbench — an educational desktop analytics app for OTC derivatives counterparty-credit underwriting."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,17 +19,14 @@ keywords = [
     "underwriting",
 ]
 
-# Runtime dependencies. The app runs fully offline against a bundled synthetic
-# market snapshot; yfinance is opt-in and always degrades gracefully.
+# Runtime dependencies. The app runs fully offline against the bundled JSON
+# market snapshot. Public financials and static chart export are optional.
 dependencies = [
     "PySide6>=6.6",
     "numpy>=1.26",
     "pandas>=2.1",
     "scipy>=1.11",
     "plotly>=5.18",
-    "kaleido>=0.2.1",
-    "pyarrow>=14.0",
-    "yfinance>=0.2.37",
     "reportlab>=4.0",
     "python-pptx>=0.6.23",
 ]
@@ -46,9 +44,24 @@ dev = [
 build = [
     "pyinstaller>=6.0",
 ]
+# Counterparty "Fetch": public-company financials. Missing yfinance degrades
+# to the values already on screen, with a message naming this extra.
+live = [
+    "yfinance>=0.2.37",
+]
+# PDF/PPTX chart images (kaleido) and optional parquet I/O (pyarrow). The
+# bundled snapshot is JSON, so pyarrow is not imported by the app today.
+# Interactive HTML charts use plotly and do not need this extra.
+export = [
+    "kaleido>=0.2.1",
+    "pyarrow>=14.0",
+]
 
 [project.scripts]
 duw = "duw.app:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "duw.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

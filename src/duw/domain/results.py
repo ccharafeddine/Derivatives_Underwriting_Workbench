@@ -10,7 +10,9 @@ No Qt imports.
 
 Unit conventions:
 
-- Exposure amounts are in the netting set's currency, non-negative.
+- Exposure amounts are in the netting set's reporting currency (the shared
+  trade currency, or the first trade's currency when the set mixes currencies,
+  after converting other mark-to-market at FX), and are non-negative.
 - ``time_grid`` entries are year fractions from the as-of date.
 - CVA/DVA/BCVA are present-value amounts; ``lgd`` is a decimal in ``[0, 1]``.
 - ``utilization`` is a decimal fraction of the limit (``1.0`` == 100%).
@@ -61,6 +63,9 @@ class CollateralResult:
     mpor_days: int = 0
     collateral_currency: str = ""
     fx_haircut: float = 0.0
+    # Currency the exposure cube is expressed in. The FX haircut discounts
+    # collateral only when this differs from ``collateral_currency``.
+    exposure_currency: str = ""
     time_grid: tuple[float, ...] = field(default_factory=tuple)
     ee_uncollateralized: tuple[float, ...] = field(default_factory=tuple)
     ee_collateralized: tuple[float, ...] = field(default_factory=tuple)

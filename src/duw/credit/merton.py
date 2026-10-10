@@ -73,7 +73,7 @@ def solve_merton(
 
     # Degenerate inputs: no equity cushion or no debt -> use direct fallbacks.
     if equity_value <= 0.0 or equity_vol <= 0.0 or debt <= 0.0:
-        return _fallback(equity_value, equity_vol, debt, horizon, drift)
+        return _fallback(equity_value, equity_vol, debt, risk_free_rate, horizon, drift)
 
     disc_debt = debt * exp(-risk_free_rate * horizon)
     v0 = equity_value + disc_debt
@@ -98,7 +98,7 @@ def solve_merton(
     v, sigma_v = float(solution[0]), float(solution[1])
     converged = flag == 1 and v > 0.0 and sigma_v > 0.0
     if not converged:
-        return _fallback(equity_value, equity_vol, debt, horizon, drift)
+        return _fallback(equity_value, equity_vol, debt, risk_free_rate, horizon, drift)
 
     dtd = _distance_to_default(v, debt, sigma_v, horizon, drift)
     return MertonResult(
@@ -114,11 +114,18 @@ def _fallback(
     equity_value: float,
     equity_vol: float,
     debt: float,
+    risk_free_rate: float,
     horizon: float,
     drift: float,
 ) -> MertonResult:
-    """Closed-form approximation used when the solve cannot be trusted."""
-    v = max(equity_value, 0.0) + max(debt, 0.0)
+    """Closed-form approximation used when the solve cannot be trusted.
+
+    Asset value is equity plus the discounted default point,
+    ``V = E + D e^{-rT}``, the same limit the call-price equation takes when
+    both risk-neutral exercise probabilities are one.
+    """
+    disc_debt = max(debt, 0.0) * exp(-risk_free_rate * horizon)
+    v = max(equity_value, 0.0) + disc_debt
     # Wiped-out equity (or no debt/assets) means the firm sits at or past its
     # default boundary and the structural model is not meaningful; treat as
     # certain default rather than returning a misleadingly low PD.

@@ -20,10 +20,25 @@ for package in ("PySide6", "plotly"):
     hiddenimports += pkg_hidden
 
 # Bundle the synthetic market snapshot and seed counterparties.
-datas += collect_data_files("duw", includes=["data/*.json"])
+datas += collect_data_files("duw", includes=["data/*.json", "data/scenarios/*.json"])
 
-# reportlab / kaleido carry data files used by the report path.
+# reportlab carries data files used by the PDF memo.
 datas += collect_data_files("reportlab")
+
+# Optional features the Windows binary should still ship when they are
+# installed in the build environment (see requirements-build.txt): yfinance
+# for public financials, kaleido for static chart images. Both are imported
+# lazily, so PyInstaller will not see them unless they are named here.
+# pyarrow is an optional extra but is not imported; it is not bundled.
+for package in ("yfinance", "kaleido"):
+    try:
+        pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
+    except Exception:
+        continue
+    datas += pkg_datas
+    binaries += pkg_binaries
+    hiddenimports += pkg_hidden
+    hiddenimports.append(package)
 
 a = Analysis(
     ["src/duw/app.py"],

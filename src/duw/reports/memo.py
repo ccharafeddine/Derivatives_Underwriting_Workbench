@@ -200,6 +200,23 @@ def _figures(results: AnalysisResults) -> list[tuple[str, object]]:
     ]
 
 
+def export_extra_message() -> str | None:
+    """Tell the user how to get static chart images when kaleido is missing.
+
+    Returns ``None`` when the optional ``export`` extra is installed. Plotly's
+    interactive HTML memo does not need it; PDF and PPTX image embeds do.
+    """
+    try:
+        import kaleido  # noqa: F401  # lazy: optional extra
+    except ImportError:
+        return (
+            "Static chart images were omitted because the optional export extra "
+            'is not installed (pip install "duw[export]"). The HTML memo still '
+            "includes interactive charts."
+        )
+    return None
+
+
 def _figure_png(figure: object) -> bytes | None:
     """Render a plotly figure to PNG bytes, or ``None`` if kaleido is absent."""
     try:
@@ -366,11 +383,20 @@ def write_memo_pdf(
     story.append(Spacer(1, 10))
 
     if include_charts:
+        embedded = False
         for _name, fig in _figures(results):
             png = _figure_png(fig)
             if png is not None:
+                embedded = True
                 story.append(Image(BytesIO(png), width=5.6 * inch, height=2.8 * inch))
                 story.append(Spacer(1, 6))
+        if not embedded:
+            note = export_extra_message() or (
+                "Static chart images could not be rendered. Install the optional "
+                'export extra (pip install "duw[export]") if chart export is missing.'
+            )
+            story.append(Paragraph(note, small))
+            story.append(Spacer(1, 6))
 
     story.append(Spacer(1, 10))
     story.append(Paragraph(f"<b>Disclaimer.</b> {DISCLAIMER}", small))

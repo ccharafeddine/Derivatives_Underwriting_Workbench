@@ -10,4 +10,7 @@ This is a portfolio / educational project. It runs on synthetic and public data
 only, executes no trades, and is not affiliated with any financial institution.
 """
 
-__version__ = "1.1.0"
+# Single source for the release version. pyproject.toml reads this attribute
+# (see [tool.setuptools.dynamic]) so the package metadata, the in-app update
+# check, and the frozen binary all report the same number.
+__version__ = "1.1.1"

@@ -8,6 +8,17 @@ from duw.app import main, selftest
 
 def test_version_is_set() -> None:
     assert __version__.count(".") == 2
+    assert __version__ == "1.1.1"
+
+
+def test_installed_version_matches_package() -> None:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        installed = version("duw")
+    except PackageNotFoundError:
+        return
+    assert installed == __version__
 
 
 def test_selftest_runs_headless() -> None:

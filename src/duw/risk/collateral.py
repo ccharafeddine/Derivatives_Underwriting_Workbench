@@ -25,11 +25,19 @@ collateral reflects the exposure as of ``t - delta``, so a move over the MPoR is
 uncollateralized. With no CSA (very large threshold, zero IM) the collateralized
 exposure recovers the uncollateralized profile.
 
+**One-way CSA.** Collateral is applied only against our positive exposure (the
+counterparty posts when the net mark-to-market is in our favour). The model does
+not post collateral the other way when the mark-to-market is negative to us.
+That simplification is stated in the collateral commentary and the memo.
+
 **Multi-currency collateral:** when collateral is posted in a currency other than
 the netting-set currency, its value drifts with FX over the MPoR. This is modelled
 with a supervisory-style ``fx_haircut`` applied to the posted collateral value
 (variation and initial margin), so posting in a different currency mitigates less
-than same-currency collateral. A ``0`` haircut recovers single-currency behavior.
+than same-currency collateral. The haircut is applied only when
+``collateral_currency`` and the exposure currency are both set and differ. A
+``0`` haircut, or the same currency on both sides, recovers single-currency
+behavior.
 
 Pure numerics; no Qt.
 """
@@ -50,9 +58,10 @@ BUSINESS_DAYS_PER_YEAR = 252.0
 class CSA:
     """Credit Support Annex parameters (amounts in the netting-set currency).
 
-    ``collateral_currency`` is informational; ``fx_haircut`` (a decimal, e.g.
-    ``0.08``) discounts posted collateral value when it is in a different currency
-    than the exposure. ``0`` is same-currency collateral.
+    ``collateral_currency`` is the currency the collateral is posted in.
+    ``fx_haircut`` (a decimal, e.g. ``0.08``) discounts posted collateral only
+    when that currency differs from the netting-set exposure currency. ``0``,
+    a blank currency, or a matching currency leaves the collateral undiscounted.
     """
 
     threshold: float = 0.0
@@ -86,7 +95,72 @@ def _lagged_values(
     return lag
 
 
-def apply_csa(cube: np.ndarray, time_grid: tuple[float, ...], csa: CSA) -> np.ndarray:
+def effective_fx_haircut(csa: CSA, exposure_currency: str) -> float:
+    """Haircut that actually discounts collateral, or ``0`` when it does not.
+
+    The contractual ``fx_haircut`` applies only when collateral is posted in a
+    different currency from the netting-set exposure. Same currency, a blank
+    currency, or a missing exposure currency leaves the haircut unused so a
+    same-currency CSA cannot be discounted by accident.
+    """
+    if csa.fx_haircut <= 0.0:
+        return 0.0
+    collateral = csa.collateral_currency.strip().upper()
+    exposure = exposure_currency.strip().upper()
+    if not collateral or not exposure or collateral == exposure:
+        return 0.0
+    return csa.fx_haircut
+
+
+#: Plain-English statement of the one-way CSA simplification, shared by the
+#: collateral tab and the underwriting memo.
+ONE_WAY_CSA_NOTE = (
+    "The collateral model is one-way: it reduces our exposure when the "
+    "counterparty posts collateral, and does not model collateral we would "
+    "post when the mark-to-market is in their favour."
+)
+
+
+def collateral_model_note(
+    *,
+    collateral_currency: str,
+    fx_haircut: float,
+    exposure_currency: str,
+) -> str:
+    """One-way disclosure, plus whether the FX haircut was actually applied."""
+    parts = [ONE_WAY_CSA_NOTE]
+    if fx_haircut > 0.0:
+        applied = effective_fx_haircut(
+            CSA(
+                collateral_currency=collateral_currency,
+                fx_haircut=fx_haircut,
+            ),
+            exposure_currency,
+        )
+        if applied > 0.0:
+            parts.append(
+                f"Collateral posted in {collateral_currency} is haircut by "
+                f"{applied:.0%} relative to {exposure_currency} exposure."
+            )
+        elif (
+            collateral_currency.strip()
+            and exposure_currency.strip()
+            and collateral_currency.strip().upper() == exposure_currency.strip().upper()
+        ):
+            parts.append(
+                f"The {fx_haircut:.0%} FX haircut is not applied because collateral "
+                f"is in {collateral_currency}, the same currency as the netting set."
+            )
+    return " ".join(parts)
+
+
+def apply_csa(
+    cube: np.ndarray,
+    time_grid: tuple[float, ...],
+    csa: CSA,
+    *,
+    exposure_currency: str = "",
+) -> np.ndarray:
     """Return the collateralized exposure cube (non-negative) under ``csa``."""
     delta = csa.mpor_days / BUSINESS_DAYS_PER_YEAR
     exposure = np.maximum(cube, 0.0)
@@ -94,8 +168,9 @@ def apply_csa(cube: np.ndarray, time_grid: tuple[float, ...], csa: CSA) -> np.nd
     variation_margin = np.maximum(lagged - csa.threshold, 0.0)
     # Minimum transfer amount: no collateral moves below the MTA.
     variation_margin = np.where(variation_margin >= csa.mta, variation_margin, 0.0)
-    # FX haircut discounts the value of collateral posted in another currency.
-    effective = (1.0 - csa.fx_haircut) * (variation_margin + csa.initial_margin)
+    # FX haircut discounts collateral only when its currency differs.
+    haircut = effective_fx_haircut(csa, exposure_currency)
+    effective = (1.0 - haircut) * (variation_margin + csa.initial_margin)
     return np.maximum(exposure - effective, 0.0)
 
 
@@ -105,11 +180,15 @@ def _peak_pfe(exposure: np.ndarray, quantile: float = 95.0) -> float:
 
 
 def compute_collateral(
-    cube: np.ndarray, time_grid: tuple[float, ...], csa: CSA
+    cube: np.ndarray,
+    time_grid: tuple[float, ...],
+    csa: CSA,
+    *,
+    exposure_currency: str = "",
 ) -> CollateralResult:
     """Uncollateralized vs collateralized EE and peak PFE under ``csa``."""
     uncollat = np.maximum(cube, 0.0)
-    collat = apply_csa(cube, time_grid, csa)
+    collat = apply_csa(cube, time_grid, csa, exposure_currency=exposure_currency)
     return CollateralResult(
         threshold=csa.threshold,
         mta=csa.mta,
@@ -117,6 +196,7 @@ def compute_collateral(
         mpor_days=csa.mpor_days,
         collateral_currency=csa.collateral_currency,
         fx_haircut=csa.fx_haircut,
+        exposure_currency=exposure_currency,
         time_grid=tuple(float(t) for t in time_grid),
         ee_uncollateralized=tuple(uncollat.mean(axis=0)),
         ee_collateralized=tuple(collat.mean(axis=0)),

@@ -17,10 +17,18 @@ from duw.domain.results import (
 from duw.reports.deck import write_memo_pptx
 from duw.reports.interpreter import (
     DISCLAIMER,
+    interpret_collateral,
+    interpret_cva,
     recommend,
     section_commentary,
 )
-from duw.reports.memo import SECTIONS, generate_memo, render_memo_html, write_memo_pdf
+from duw.reports.memo import (
+    SECTIONS,
+    export_extra_message,
+    generate_memo,
+    render_memo_html,
+    write_memo_pdf,
+)
 
 AS_OF = date(2025, 6, 30)
 GRID = (0.0, 1.0, 2.0, 3.0)
@@ -180,3 +188,47 @@ def test_deck_pptx_is_written(tmp_path) -> None:
     path = write_memo_pptx(_results(), tmp_path / "deck.pptx")
     assert path.exists()
     assert path.stat().st_size > 0
+
+
+def test_memo_discloses_fva_simplification_and_one_way_csa() -> None:
+    html = render_memo_html(_results(), include_charts=False)
+    assert "one funding spread" in html
+    assert "symmetrically" in html
+    assert "one-way" in html
+    assert "one funding spread" in interpret_cva(_results())
+    assert "one-way" in interpret_collateral(_results())
+
+
+def test_missing_kaleido_explains_the_export_extra(monkeypatch) -> None:
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocked(name, *args, **kwargs):
+        if name == "kaleido" or name.startswith("kaleido."):
+            raise ImportError("no module named kaleido")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked)
+    message = export_extra_message()
+    assert message is not None
+    assert "duw[export]" in message
+
+
+def test_deck_explains_missing_chart_export(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "duw.reports.deck.export_extra_message",
+        lambda: 'Install the optional export extra (pip install "duw[export]").',
+    )
+    monkeypatch.setattr("duw.reports.deck._figure_png", lambda figure: None)
+    path = write_memo_pptx(_results(), tmp_path / "deck.pptx")
+    from pptx import Presentation
+
+    deck = Presentation(str(path))
+    text = "\n".join(
+        shape.text_frame.text
+        for slide in deck.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+    )
+    assert "duw[export]" in text
