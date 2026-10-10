@@ -30,6 +30,53 @@ def qapp() -> QApplication:
 
 
 @pytest.fixture(autouse=True)
+def join_worker_threads(monkeypatch):
+    """Let every QThread a test started finish before the test ends.
+
+    The Simulator and main window run the pipeline on a fresh ``QThread``. A
+    test that triggers a run and returns lets its widget (and the thread it
+    owns) be destroyed while the thread is still working, or leaves it running
+    into interpreter shutdown. Qt then aborts ("QThread: Destroyed while thread
+    is still running") or Python dies in final GC (bool_dealloc / segfault),
+    after every test has already passed.
+    """
+    import duw.ui.main_window as main_window
+    import duw.ui.tabs.simulator_tab as simulator_tab
+
+    started: list = []
+
+    def tracking(factory):
+        def wrapper(worker):
+            thread = factory(worker)
+            started.append(thread)
+            return thread
+
+        return wrapper
+
+    monkeypatch.setattr(
+        simulator_tab,
+        "create_scenario_thread",
+        tracking(simulator_tab.create_scenario_thread),
+    )
+    monkeypatch.setattr(
+        main_window,
+        "create_worker_thread",
+        tracking(main_window.create_worker_thread),
+    )
+    yield
+    app = QApplication.instance()
+    for thread in started:
+        # The worker's finished -> thread.quit hop is queued to this thread, so
+        # keep pumping events while waiting.
+        while thread.isRunning():
+            if app is not None:
+                app.processEvents()
+            thread.wait(50)
+    if app is not None:
+        app.processEvents()
+
+
+@pytest.fixture(autouse=True)
 def isolated_progress(tmp_path, monkeypatch) -> None:
     """Point the default campaign-progress path at a per-test temporary file.
 
@@ -42,3 +89,27 @@ def isolated_progress(tmp_path, monkeypatch) -> None:
         "default_progress_path",
         lambda: tmp_path / "campaign.json",
     )
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """Destroy leftover Qt widgets before the interpreter starts shutting down.
+
+    Widgets that tests left alive would otherwise be freed during Python's
+    final GC, after PySide6 has partly torn itself down, and that crashes the
+    process (segfault / bool_dealloc abort) after every test has passed.
+    """
+    import gc
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    app = QApplication.instance()
+    if app is None:
+        return
+    for widget in app.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+    gc.collect()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
