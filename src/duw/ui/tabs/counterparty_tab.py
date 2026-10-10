@@ -227,9 +227,8 @@ class CounterpartyTab(QWidget):
             from duw.credit.public_data import live_data_import_error
 
             missing = live_data_import_error()
-            detail = missing or (
-                "Could not fetch — kept current values (offline or unknown ticker)."
-            )
+            reason = missing or "kept current values (offline or unknown ticker)."
+            detail = f"Could not fetch — {reason}"
             self.fetch_status.setText(f"<span style='color:#c62828'>{detail}</span>")
         self._refresh()
 
