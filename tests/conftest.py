@@ -98,6 +98,8 @@ def pytest_sessionfinish(session, exitstatus) -> None:
     final GC, after PySide6 has partly torn itself down, and that crashes the
     process (segfault / bool_dealloc abort) after every test has passed.
     """
+    session.config._duw_exitstatus = int(exitstatus)
+
     import gc
 
     from PySide6.QtCore import QCoreApplication, QEvent
@@ -113,3 +115,23 @@ def pytest_sessionfinish(session, exitstatus) -> None:
     gc.collect()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     app.processEvents()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config) -> None:
+    """Exit without running Python's interpreter finalization.
+
+    Even after the cleanup above, PySide6/QtWebEngine can still abort during
+    the interpreter's final garbage collection (``bool_dealloc`` / exit code
+    134) once every test has already passed. By this point pytest has printed
+    its summary and every other plugin has finished, so flush the output and
+    leave with pytest's own exit status instead of letting the teardown crash.
+    """
+    import sys
+
+    status = getattr(config, "_duw_exitstatus", None)
+    if status is None:
+        return
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(status)
