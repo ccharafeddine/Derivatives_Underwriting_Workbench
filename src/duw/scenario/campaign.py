@@ -151,6 +151,10 @@ CAMPAIGN = Campaign(
                 "A payer swap moves into the money as rates rise, growing the "
                 "exposure on exactly the name whose credit is deteriorating."
             ),
+            # With margin-period gap risk modelled on any grid (Brownian-bridge
+            # MPoR lag), blanket collateral recovers a little more than before;
+            # 0.65 keeps "collateralize everything" short of clearing the stage.
+            pass_ratio=0.65,
         ),
         CampaignStage(
             scenario_name="rates_rally_default",

@@ -73,15 +73,32 @@ class CSA:
 
 
 def _lagged_values(
-    cube: np.ndarray, time_grid: tuple[float, ...], delta: float
+    cube: np.ndarray,
+    time_grid: tuple[float, ...],
+    delta: float,
+    *,
+    bridge: bool = True,
+    seed: int = 20240101,
 ) -> np.ndarray:
     """Return the netting-set value at ``t_k - delta`` for every node.
 
-    Linear interpolation along the time axis; queries at or before ``t_0`` take
-    the initial value (all paths share the deterministic ``t_0`` column).
+    The lag date usually falls between two simulated dates. Straight linear
+    interpolation there understates the move over the margin period of risk:
+    on a grid step ``h`` it keeps only ``delta / h`` of the variance a real
+    ``delta``-long move has, so the collateralized exposure shrinks as the
+    grid gets coarser (peak collateralized PFE moved by ~3x between a 12- and
+    a 126-step grid). With ``bridge=True`` (default) the lagged value is drawn
+    from a Brownian bridge between the two bracketing simulated values: the
+    linear interpolation plus Gaussian noise with variance
+    ``w (1 - w) h * sigma_j**2``, where ``sigma_j**2`` is the cross-path
+    variance rate of the netting-set value over that step. When the lag date
+    lands on a grid date the result is exact either way. Queries at or before
+    ``t_0`` take the initial value (all paths share the ``t_0`` column).
+    The noise uses a fixed seed so results are reproducible.
     """
     grid = np.asarray(time_grid, dtype=float)
-    lag = np.empty_like(cube)
+    lag = np.empty_like(cube, dtype=float)
+    rng = np.random.default_rng(seed) if bridge else None
     for k, t in enumerate(grid):
         tl = t - delta
         if tl <= grid[0]:
@@ -92,6 +109,11 @@ def _lagged_values(
         span = grid[j + 1] - grid[j]
         w = 0.0 if span <= 0 else (tl - grid[j]) / span
         lag[:, k] = (1.0 - w) * cube[:, j] + w * cube[:, j + 1]
+        if rng is not None and 0.0 < w < 1.0 and span > 0:
+            rate = float(np.var(cube[:, j + 1] - cube[:, j])) / span
+            sd = np.sqrt(max(w * (1.0 - w) * span * rate, 0.0))
+            if sd > 0:
+                lag[:, k] += sd * rng.standard_normal(cube.shape[0])
     return lag
 
 
