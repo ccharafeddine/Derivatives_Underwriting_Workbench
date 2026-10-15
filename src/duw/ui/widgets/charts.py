@@ -109,9 +109,39 @@ _GRAPHITE_ROLES: dict[str, str] = {
 _GRAPHITE_FILLS = {"pfe95": "rgba(76,141,255,0.14)", "collat": "rgba(76,141,255,0.10)"}
 
 
+# "print": the Graphite palette on white, for the PDF / PPTX / HTML memo.
+_CHART_THEMES["print"] = {
+    "template": "plotly_white",
+    "paper": "#FFFFFF",
+    "plot": "#FFFFFF",
+    "font": "#1F2328",
+    "grid": "rgba(31,35,40,0.08)",
+    "zero": "#D0D7DE",
+    "ref": "#9A6700",
+    "muted": "#57606A",
+}
+_PRINT_ROLES: dict[str, str] = _GRAPHITE_ROLES | {
+    "ee": "#1F2328",
+    "pfe95": "#2F6FEB",
+    "pfe99": "#2F6FEB",
+    "collat": "#2F6FEB",
+    "ok": "#2F6FEB",
+    "bar": "#2F6FEB",
+    "uncollat": "#8C959F",
+    "breach": "#CF222E",
+    "stress": "#CF222E",
+    "series0": "#2F6FEB",
+    "series2": "#57606A",
+    "series5": "#1F2328",
+}
+_PRINT_FILLS = {"pfe95": "rgba(47,111,235,0.12)", "collat": "rgba(47,111,235,0.10)"}
+
+
 def _role_colors(theme: str) -> tuple[dict[str, str], dict[str, str]]:
     if theme == "graphite":
         return _GRAPHITE_ROLES, _GRAPHITE_FILLS
+    if theme == "print":
+        return _PRINT_ROLES, _PRINT_FILLS
     return _LEGACY_ROLES, _LEGACY_FILLS
 
 
@@ -166,14 +196,14 @@ def apply_chart_theme(fig: go.Figure, theme: str) -> go.Figure:
     fig.update_xaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
     fig.update_yaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
     _recolor_traces(fig, theme)
-    if theme == "graphite":
+    if theme in ("graphite", "print"):
         # Restrained Graphite chart chrome: Inter at small sizes, quiet title,
         # tabular axis numbers, no axis lines, small legend.
         fig.update_layout(
             font=dict(family="Inter, Segoe UI, Helvetica, Arial, sans-serif", size=11),
             title_font=dict(size=12, color=t["font"]),
             legend=dict(font=dict(size=10), bgcolor="rgba(0,0,0,0)"),
-            hoverlabel=dict(bgcolor="#1B2128", bordercolor="#2D333B"),
+            hoverlabel=dict(bgcolor=t["paper"], bordercolor=t["zero"]),
         )
         if fig.layout.margin.t is not None and fig.layout.margin.t > 30:
             fig.update_layout(margin=dict(l=58, r=56, t=40, b=64))

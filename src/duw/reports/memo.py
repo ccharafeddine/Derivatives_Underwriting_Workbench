@@ -186,17 +186,22 @@ def _limit_rows(results: AnalysisResults) -> list[tuple[str, str]]:
 # --------------------------------------------------------------------------- #
 def _figures(results: AnalysisResults) -> list[tuple[str, object]]:
     from duw.ui.widgets.charts import (
+        apply_chart_theme,
         collateral_figure,
         cva_figure,
         exposure_figure,
         limits_figure,
     )
 
+    # The memo is a printable document: Graphite colours on white ("print").
     return [
-        ("Exposure", exposure_figure(results.exposure)),
-        ("Collateral", collateral_figure(results.collateral)),
-        ("CVA", cva_figure(results.cva)),
-        ("Limits", limits_figure(results.limits)),
+        (name, apply_chart_theme(fig, "print"))
+        for name, fig in (
+            ("Exposure", exposure_figure(results.exposure)),
+            ("Collateral", collateral_figure(results.collateral)),
+            ("CVA", cva_figure(results.cva)),
+            ("Limits", limits_figure(results.limits)),
+        )
     ]
 
 
@@ -219,8 +224,11 @@ def export_extra_message() -> str | None:
 
 def _figure_png(figure: object) -> bytes | None:
     """Render a plotly figure to PNG bytes, or ``None`` if kaleido is absent."""
+    from duw.ui.widgets.charts import apply_chart_theme
+
     try:
-        return figure.to_image(format="png", width=760, height=380)
+        apply_chart_theme(figure, "print")
+        return figure.to_image(format="png", width=760, height=380, scale=2)
     except Exception:
         return None
 
