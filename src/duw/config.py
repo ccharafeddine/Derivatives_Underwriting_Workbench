@@ -28,9 +28,12 @@ KEY_FUNDING_BPS = "credit/funding_spread_bps"
 KEY_WWR = "credit/wwr_correlation"
 KEY_UPDATE_CHECK = "updates/check_on_startup"
 KEY_TOOLTIPS = "ui/learning_tooltips"
+# Set once the one-time move to the Graphite redesign has happened, so a user
+# who later picks another theme keeps it.
+KEY_THEME_MIGRATED = "ui/graphite_migrated"
 
 DEFAULTS: dict[str, Any] = {
-    KEY_THEME: "dark",
+    KEY_THEME: "graphite",
     KEY_MC_PATHS: 2000,
     KEY_MC_STEPS: 12,
     KEY_MC_SEED: 12345,
@@ -93,6 +96,21 @@ class AppSettings:
     def remove(self, key: str) -> None:
         """Delete the stored value for ``key`` if present."""
         self._settings.remove(key)
+
+    def migrate_theme(self) -> None:
+        """Move a pre-redesign default theme to Graphite, exactly once.
+
+        Earlier versions defaulted to the amber "dark" theme and wrote it back
+        on every theme change, so a stored "dark" mostly means "never chose".
+        The first launch of the redesign switches it to Graphite; after that
+        the stored choice is respected (the old themes stay selectable).
+        """
+        if self.get_bool(KEY_THEME_MIGRATED, False):
+            return
+        if self.get_str(KEY_THEME) == "dark":
+            self.set(KEY_THEME, "graphite")
+        self.set(KEY_THEME_MIGRATED, True)
+        self.sync()
 
     def sync(self) -> None:
         """Flush any pending writes to the backing store."""

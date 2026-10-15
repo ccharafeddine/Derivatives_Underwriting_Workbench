@@ -27,7 +27,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 from PySide6.QtCore import QByteArray, Qt, QTemporaryDir, QUrl
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from duw.ui.theme import current_theme
 from duw.ui.widgets.charts import apply_chart_theme, chart_palette
@@ -91,6 +91,12 @@ class PlotlyView(QWidget):
             self._view = QLabel("")
             self._view.setWordWrap(True)
             self._view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            # The rendered pixmap must not drive the layout: the chart is drawn
+            # at the widget's size, so a pixmap-sized hint would grow the view
+            # (and the window) on every re-render.
+            ignored = QSizePolicy.Policy.Ignored
+            self._view.setSizePolicy(ignored, ignored)
+            self._view.setMinimumSize(1, 1)
         layout.addWidget(self._view)
 
     def set_figure(self, figure: go.Figure) -> None:
@@ -155,11 +161,15 @@ class PlotlyView(QWidget):
         if self.figure is None:
             self._view.setText(self._message or "")
             return
+        # Render at the screen's device-pixel ratio so charts stay sharp on
+        # high-DPI displays.
+        dpr = max(1.0, float(self.devicePixelRatioF()))
         try:
             png = self.figure.to_image(
                 format="png",
-                width=max(self.width(), 480),
-                height=max(self.height(), 320),
+                width=max(self.width(), 320),
+                height=max(self.height(), 200),
+                scale=dpr,
             )
         except Exception:  # kaleido missing or failed
             self._view.setText(
@@ -169,6 +179,7 @@ class PlotlyView(QWidget):
             return
         pixmap = QPixmap()
         pixmap.loadFromData(QByteArray(png))
+        pixmap.setDevicePixelRatio(dpr)
         self._view.setPixmap(pixmap)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt override

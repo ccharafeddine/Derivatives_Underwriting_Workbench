@@ -119,7 +119,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Derivatives Underwriting Workbench")
     app.setApplicationVersion(__version__)
 
-    apply_theme(app, AppSettings().get_str(KEY_THEME))
+    settings = AppSettings()
+    settings.migrate_theme()
+    apply_theme(app, settings.get_str(KEY_THEME))
 
     window = MainWindow()
     window.show()

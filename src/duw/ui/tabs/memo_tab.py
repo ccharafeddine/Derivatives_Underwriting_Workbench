@@ -54,7 +54,11 @@ class MemoTab(QWidget):
         self._tmpdir = QTemporaryDir()
         self._counter = 0
         self._view: QWidget
+        from duw.ui.widgets.plotly_view import static_charts_enabled
+
         try:
+            if static_charts_enabled():
+                raise ImportError("static mode: no QtWebEngine")
             from PySide6.QtWebEngineWidgets import QWebEngineView
 
             self._view = QWebEngineView()
@@ -63,6 +67,12 @@ class MemoTab(QWidget):
             from PySide6.QtWidgets import QTextBrowser
 
             self._view = QTextBrowser()
+            # The memo is a printable document: show it on paper in any theme.
+            self._view.setObjectName("memoPaper")
+            self._view.setStyleSheet(
+                "QTextBrowser#memoPaper { background: #F6F8FA; color: #1F2328;"
+                " border: 1px solid #22272E; padding: 18px; }"
+            )
             self._web = False
 
         layout = QVBoxLayout(self)

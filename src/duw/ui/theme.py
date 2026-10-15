@@ -1,21 +1,258 @@
 """Application theming.
 
-Two app-wide Qt style sheets:
+Three app-wide Qt style sheets:
 
-- **dark** — a Bloomberg-terminal aesthetic: near-black panels, amber accents, and
-  monospaced data grids, for the trading-desk feel.
-- **light** — a warm beige "paper" theme (not stark white) with dark, high-contrast
-  text, easier on the eyes than a bright white UI.
+- **graphite** (default): the Graphite design system shared with Portfolio
+  Analyzer. Neutral graphite surfaces separated by 1px hairlines, one blue
+  accent for selection and primary actions, green/red kept for gains, losses
+  and breaches, and Inter with tabular numerals. Tokens live in
+  :data:`GRAPHITE`; widgets that paint their own colours read them through
+  :func:`tokens`.
+- **dark**: the original Bloomberg-terminal look (amber on near-black,
+  monospaced grids), kept selectable as "Terminal (amber)".
+- **light**: the original warm beige "paper" theme.
 
-Charts render in their own web views with a light plotly background, reading as
-cards against either theme.
+Charts follow the active theme through
+:func:`duw.ui.widgets.charts.apply_chart_theme`.
 """
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-THEMES: tuple[str, ...] = ("dark", "light")
+THEMES: tuple[str, ...] = ("graphite", "dark", "light")
+DEFAULT_THEME = "graphite"
+THEME_LABELS: dict[str, str] = {
+    "graphite": "Graphite",
+    "dark": "Terminal (amber)",
+    "light": "Paper (light)",
+}
+
+# Graphite design tokens (identical values to Portfolio Analyzer's GRAPHITE).
+GRAPHITE: dict[str, str] = {
+    "bg": "#0E1114",
+    "panel": "#12161A",
+    "card": "#12161A",
+    "card_alt": "#151A1F",
+    "raised": "#1B2128",
+    "border": "#22272E",
+    "border_light": "#2D333B",
+    "accent": "#2F6FEB",
+    "accent_hover": "#255FD0",
+    "accent_soft": "#4C8DFF",
+    "text": "#E6EDF3",
+    "text_slate": "#ADBAC7",
+    "text_muted": "#768390",
+    "text_faint": "#636E7B",
+    "green": "#3FB950",
+    "red": "#F47067",
+    "amber": "#D4A72C",
+}
+
+# Approximate tokens for the legacy themes, for self-painted widgets.
+_LEGACY_TOKENS: dict[str, dict[str, str]] = {
+    "dark": GRAPHITE
+    | {
+        "bg": "#0b0c0e",
+        "panel": "#0e0f12",
+        "card": "#141619",
+        "raised": "#1c1f25",
+        "border": "#24272e",
+        "border_light": "#2f333b",
+        "accent": "#f2a007",
+        "accent_soft": "#ffab33",
+        "text": "#d2cbb9",
+        "text_slate": "#cbc4b2",
+        "text_muted": "#8f8a7c",
+        "text_faint": "#6b6656",
+        "green": "#2ca02c",
+        "red": "#d62728",
+        "amber": "#ffab33",
+    },
+    "light": GRAPHITE
+    | {
+        "bg": "#e7e0cf",
+        "panel": "#efe8d8",
+        "card": "#f5efe2",
+        "raised": "#ded5c1",
+        "border": "#c4b89e",
+        "border_light": "#d5cbb4",
+        "accent": "#2b62d9",
+        "accent_soft": "#2b62d9",
+        "text": "#2a2419",
+        "text_slate": "#5c5240",
+        "text_muted": "#6b5f49",
+        "text_faint": "#837a67",
+        "green": "#2e7d32",
+        "red": "#c62828",
+        "amber": "#b26a00",
+    },
+}
+
+
+def tokens(theme: str | None = None) -> dict[str, str]:
+    """Colour tokens for ``theme`` (default: the active theme)."""
+    key = theme or _current
+    return GRAPHITE if key == "graphite" else _LEGACY_TOKENS.get(key, GRAPHITE)
+
+
+def _graphite_qss() -> str:
+    t = GRAPHITE
+    return f"""
+QWidget {{ background-color: {t["bg"]}; color: {t["text"]};
+    font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px; selection-background-color: {t["accent"]};
+    selection-color: #FFFFFF; }}
+QMainWindow, QDialog {{ background-color: {t["bg"]}; }}
+QDialog {{ background-color: {t["panel"]}; }}
+QToolTip {{ background-color: {t["panel"]}; color: {t["text"]};
+    border: 1px solid {t["border_light"]}; padding: 6px 8px; }}
+QMenuBar {{ background-color: {t["panel"]}; color: {t["text_slate"]};
+    border-bottom: 1px solid {t["border"]}; }}
+QMenuBar::item {{ padding: 4px 10px; background: transparent; }}
+QMenuBar::item:selected {{ background: {t["raised"]}; color: {t["text"]}; }}
+QMenu {{ background-color: {t["panel"]}; border: 1px solid {t["border_light"]};
+    color: {t["text"]}; }}
+QMenu::item {{ padding: 5px 22px; }}
+QMenu::item:selected {{ background: {t["accent"]}; color: #FFFFFF; }}
+QMenu::separator {{ height: 1px; background: {t["border"]}; margin: 4px 0; }}
+
+QTabWidget::pane {{ border: none; border-top: 1px solid {t["border"]}; }}
+QTabWidget#pageStack::pane {{ border: none; }}
+QTabBar::tab {{ background: transparent; color: {t["text_muted"]}; padding: 5px 12px;
+    border: none; margin-right: 2px; }}
+QTabBar::tab:selected {{ color: {t["text"]}; border-bottom: 2px solid {t["accent"]}; }}
+QTabBar::tab:hover {{ color: {t["text_slate"]}; }}
+
+QGroupBox {{ background-color: {t["panel"]}; border: 1px solid {t["border"]};
+    border-radius: 0px; margin-top: 22px; padding: 10px 10px 8px 10px; }}
+QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top left;
+    left: 0px; top: 4px; padding: 0 2px; color: {t["text_slate"]};
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; }}
+
+QPushButton {{ background-color: {t["raised"]}; color: {t["text"]};
+    border: 1px solid {t["border_light"]}; border-radius: 3px; padding: 5px 12px; }}
+QPushButton:hover {{ border-color: {t["accent"]}; }}
+QPushButton:pressed {{ background-color: {t["border"]}; }}
+QPushButton:disabled {{ color: {t["text_faint"]}; border-color: {t["border"]};
+    background-color: {t["panel"]}; }}
+QPushButton#primary, QDialogButtonBox QPushButton:default {{
+    background-color: {t["accent"]}; border-color: {t["accent"]}; color: #FFFFFF;
+    font-weight: 600; }}
+QPushButton#primary:hover {{ background-color: {t["accent_hover"]}; }}
+QPushButton#primary:disabled {{ background-color: {t["border_light"]};
+    border-color: {t["border_light"]}; color: {t["text_muted"]}; }}
+QPushButton#ghost {{ background: transparent; }}
+QToolButton {{ background: transparent; color: {t["text"]};
+    border: 1px solid {t["border_light"]}; border-radius: 3px; padding: 4px 10px; }}
+QToolButton:hover {{ border-color: {t["accent"]}; }}
+QToolButton::menu-indicator {{ image: none; width: 0px; }}
+
+QCheckBox, QRadioButton {{ color: {t["text_slate"]}; spacing: 7px; }}
+QCheckBox::indicator {{ width: 13px; height: 13px; border-radius: 2px;
+    border: 1px solid {t["border_light"]}; background-color: {t["card"]}; }}
+QCheckBox::indicator:checked {{ background-color: {t["accent"]};
+    border-color: {t["accent"]}; }}
+QCheckBox::indicator:hover {{ border-color: {t["accent"]}; }}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QPlainTextEdit, QTextEdit {{
+    background-color: {t["card_alt"]}; border: 1px solid {t["border_light"]};
+    border-radius: 3px; padding: 3px 6px; color: {t["text"]}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
+QDateEdit:focus {{ border-color: {t["accent"]}; }}
+QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled {{
+    color: {t["text_faint"]}; border-color: {t["border"]}; }}
+QComboBox::drop-down, QDateEdit::drop-down {{ border: none; width: 16px; }}
+QComboBox QAbstractItemView {{ background: {t["panel"]}; color: {t["text"]};
+    border: 1px solid {t["border_light"]}; selection-background-color: {t["accent"]}; }}
+QSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {{ width: 0px; border: none; }}
+
+QTableWidget, QTableView, QListWidget, QTreeWidget {{
+    background-color: {t["panel"]}; alternate-background-color: {t["card_alt"]};
+    border: 1px solid {t["border"]}; gridline-color: {t["border"]};
+    color: {t["text"]}; outline: 0; }}
+QTableWidget::item, QTableView::item {{ padding: 2px 6px; border: none;
+    border-bottom: 1px solid {t["border"]}; }}
+QTableWidget::item:selected, QListWidget::item:selected {{
+    background: {t["raised"]}; color: {t["text"]}; }}
+QHeaderView::section {{ background-color: {t["panel"]}; color: {t["text_muted"]};
+    padding: 4px 6px; border: none; border-bottom: 1px solid {t["border"]};
+    font-size: 10px; font-weight: 600; text-transform: uppercase; }}
+QTableCornerButton::section {{ background: {t["panel"]}; border: none; }}
+
+QScrollArea {{ border: none; background: transparent; }}
+QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
+QScrollBar:horizontal {{ background: transparent; height: 8px; margin: 0; }}
+QScrollBar::handle {{ background: {t["border_light"]}; border-radius: 4px;
+    min-height: 24px; min-width: 24px; }}
+QScrollBar::handle:hover {{ background: {t["text_faint"]}; }}
+QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
+QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+
+QSplitter::handle {{ background: {t["bg"]}; }}
+QSplitter::handle:horizontal {{ width: 12px; }}
+QSplitter::handle:vertical {{ height: 12px; }}
+QProgressBar {{ background: {t["card"]}; border: none; height: 6px;
+    color: transparent; }}
+QProgressBar::chunk {{ background-color: {t["accent"]}; }}
+QStatusBar {{ background: {t["panel"]}; color: {t["text_muted"]};
+    border-top: 1px solid {t["border"]}; font-size: 11px; }}
+QStatusBar::item {{ border: none; }}
+QToolBar {{ background: {t["panel"]}; border: none; }}
+
+QLabel {{ background: transparent; color: {t["text"]}; }}
+QLabel#helpBadge {{ color: {t["text_muted"]}; background: transparent;
+    border: 1px solid {t["border_light"]}; border-radius: 7px; font-size: 9px;
+    font-weight: 600; }}
+QLabel#helpBadge:hover {{ color: {t["text"]}; border-color: {t["accent"]}; }}
+QLabel#muted, QLabel#commentary {{ color: {t["text_muted"]}; }}
+QLabel#sectionLabel {{ color: {t["text_slate"]}; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em; }}
+
+/* -- App shell ---------------------------------------------------------- */
+QFrame#topBar {{ background-color: {t["panel"]};
+    border-bottom: 1px solid {t["border"]}; }}
+QLabel#brand {{ color: {t["text"]}; font-weight: 600; letter-spacing: 0.04em; }}
+QLabel#ctxLabel {{ color: {t["text_muted"]}; }}
+QToolButton#ctxChip {{ color: {t["text"]}; border: 1px solid {t["border_light"]};
+    border-radius: 3px; padding: 3px 10px; }}
+QToolButton#ctxChip:hover {{ border-color: {t["accent"]}; }}
+QLabel#exampleTag {{ color: {t["amber"]}; border: 1px solid #5A4A1A;
+    border-radius: 2px; padding: 1px 6px; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; }}
+QFrame#navPanel {{ background-color: #101418; border-right: 1px solid {t["border"]}; }}
+QListWidget#navList {{ background: transparent; border: none; outline: 0; }}
+QListWidget#navList::item {{ color: {t["text_slate"]}; padding: 5px 14px;
+    border: none; border-left: 2px solid transparent; }}
+QListWidget#navList::item:selected {{ color: {t["text"]}; background: {t["raised"]};
+    border-left: 2px solid {t["accent"]}; }}
+QListWidget#navList::item:hover:!selected {{ color: {t["text"]}; }}
+QFrame#pageHeader {{ background: transparent; }}
+QLabel#pageTitle {{ color: {t["text"]}; font-size: 18px; font-weight: 600; }}
+QLabel#pageSub {{ color: {t["text_muted"]}; }}
+QFrame#kpiStrip {{ background-color: {t["panel"]}; border: 1px solid {t["border"]}; }}
+QFrame#kpiCell {{ border: none; border-right: 1px solid {t["border"]};
+    background: transparent; }}
+QLabel#kpiLabel {{ color: {t["text_muted"]}; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; }}
+QLabel#kpiValue {{ color: {t["text"]}; font-size: 17px; font-weight: 500; }}
+QLabel#kpiSub {{ color: {t["text_muted"]}; font-size: 11px; }}
+QFrame#panel {{ background-color: {t["panel"]}; border: 1px solid {t["border"]}; }}
+QLabel#panelTitle {{ color: {t["text_slate"]}; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em; padding: 7px 12px;
+    border-bottom: 1px solid {t["border"]}; }}
+QLabel#panelNote {{ color: {t["text_muted"]}; padding: 8px 12px;
+    border-top: 1px solid {t["border"]}; }}
+QLabel#chipOk {{ color: {t["green"]}; border: 1px solid #1F4D2A; padding: 1px 7px;
+    font-size: 10px; }}
+QLabel#chipWarn {{ color: {t["amber"]}; border: 1px solid #5A4A1A; padding: 1px 7px;
+    font-size: 10px; }}
+QLabel#chipBad {{ color: {t["red"]}; border: 1px solid #5C2B28; padding: 1px 7px;
+    font-size: 10px; }}
+QLabel#statusLabel {{ color: {t["text_muted"]}; padding: 0 6px; }}
+"""
 
 # ---------------------------------------------------------------------------
 # Dark — Bloomberg-terminal style: near-black ground, amber accents, mono grids.
@@ -144,11 +381,11 @@ QLabel#helpBadge:hover { background: #e7ecfb; }
 """
 
 
-_current = "dark"
+_current = DEFAULT_THEME
 
 
 def current_theme() -> str:
-    """Return the theme last applied via :func:`apply_theme` (default "dark").
+    """Return the theme last applied via :func:`apply_theme` (default Graphite).
 
     Lets widgets built after startup (e.g. chart views) pick up the active theme
     without threading it through every constructor.
@@ -156,13 +393,38 @@ def current_theme() -> str:
     return _current
 
 
+def normalize_theme(theme: str | None) -> str:
+    """A known theme key (unknown or empty values fall back to Graphite)."""
+    return theme if theme in THEMES else DEFAULT_THEME
+
+
 def stylesheet(theme: str) -> str:
-    """Return the Qt style sheet for ``theme`` ("dark" or "light")."""
-    return _LIGHT_QSS if theme == "light" else _DARK_QSS
+    """Return the Qt style sheet for ``theme``."""
+    key = normalize_theme(theme)
+    if key == "light":
+        return _LIGHT_QSS
+    if key == "dark":
+        return _DARK_QSS
+    return _graphite_qss()
+
+
+def apply_tabular_font(app: QApplication) -> None:
+    """Inter with tabular (fixed-width) numerals app-wide, so figures line up."""
+    from PySide6.QtGui import QFont
+
+    font = QFont(app.font())
+    font.setFamilies(["Inter", "Segoe UI", "Helvetica Neue", "Arial"])
+    if hasattr(font, "setFeature"):
+        try:
+            font.setFeature(QFont.Tag("tnum"), 1)
+        except (AttributeError, TypeError, ValueError):
+            pass
+    app.setFont(font)
 
 
 def apply_theme(app: QApplication, theme: str) -> None:
     """Apply ``theme`` to the whole application."""
     global _current
-    _current = "light" if theme == "light" else "dark"
-    app.setStyleSheet(stylesheet(theme))
+    _current = normalize_theme(theme)
+    apply_tabular_font(app)
+    app.setStyleSheet(stylesheet(_current))

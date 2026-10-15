@@ -30,9 +30,16 @@ class MetricsTable(QTableWidget):
         super().__init__(0, 2)
         self.setHorizontalHeaderLabels(["Metric", "Value"])
         self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(26)
+        self.setShowGrid(False)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         header = self.horizontalHeader()
+        left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        header.setDefaultAlignment(left)
+        self.horizontalHeaderItem(1).setTextAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         # The row set is small and fixed, so fit content instead of scrolling.
@@ -53,7 +60,11 @@ class MetricsTable(QTableWidget):
             if definition is not None:
                 metric_item.setToolTip(definition)
             self.setItem(r, 0, metric_item)
-            self.setItem(r, 1, QTableWidgetItem(str(value)))
+            value_item = QTableWidgetItem(str(value))
+            value_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
+            self.setItem(r, 1, value_item)
         self.fit_to_contents()
 
     def fit_to_contents(self) -> None:

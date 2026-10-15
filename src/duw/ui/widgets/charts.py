@@ -65,9 +65,79 @@ _CHART_THEMES: dict[str, dict[str, str]] = {
 }
 
 
+_CHART_THEMES["graphite"] = {
+    "template": "plotly_dark",
+    "paper": "#12161A",
+    "plot": "#12161A",
+    "font": "#ADBAC7",
+    "grid": "rgba(173,186,199,0.07)",
+    "zero": "#2D333B",
+    "ref": "#D4A72C",
+    "muted": "#768390",
+}
+
+# Trace colours by role. Builders tag each trace with ``meta=<role>`` so a
+# theme switch can recolour data series as well as chrome. The legacy themes
+# keep the original palette; Graphite is restrained: white EE, one blue for
+# PFE and collateral, grey for reference series, red only for breaches.
+_LEGACY_ROLES: dict[str, str] = {
+    "ee": _EE,
+    "pfe95": _PFE95,
+    "pfe99": _PFE99,
+    "collat": _COLLAT,
+    "uncollat": _UNCOLLAT,
+    "breach": _BREACH,
+    "ok": _OK,
+    "stress": _BREACH,
+    "bar": _PFE95,
+    **{f"series{i}": c for i, c in enumerate(_SERIES)},
+}
+_LEGACY_FILLS = {"pfe95": "rgba(255,127,14,0.12)", "collat": "rgba(44,160,44,0.10)"}
+_GRAPHITE_SERIES = ("#4C8DFF", "#D4A72C", "#8B949E", "#A371F7", "#56B6C2", "#C9D1D9")
+_GRAPHITE_ROLES: dict[str, str] = {
+    "ee": "#E6EDF3",
+    "pfe95": "#4C8DFF",
+    "pfe99": "#4C8DFF",
+    "collat": "#4C8DFF",
+    "uncollat": "#8B949E",
+    "breach": "#F47067",
+    "ok": "#4C8DFF",
+    "stress": "#F47067",
+    "bar": "#4C8DFF",
+    **{f"series{i}": c for i, c in enumerate(_GRAPHITE_SERIES)},
+}
+_GRAPHITE_FILLS = {"pfe95": "rgba(76,141,255,0.14)", "collat": "rgba(76,141,255,0.10)"}
+
+
+def _role_colors(theme: str) -> tuple[dict[str, str], dict[str, str]]:
+    if theme == "graphite":
+        return _GRAPHITE_ROLES, _GRAPHITE_FILLS
+    return _LEGACY_ROLES, _LEGACY_FILLS
+
+
+def _recolor_traces(fig: go.Figure, theme: str) -> None:
+    roles, fills = _role_colors(theme)
+    for trace in fig.data:
+        meta = trace.meta
+        if isinstance(meta, (list, tuple)):
+            colors = [roles.get(str(m)) for m in meta]
+            if all(colors) and getattr(trace, "marker", None) is not None:
+                trace.marker.color = colors
+            continue
+        if not isinstance(meta, str) or meta not in roles:
+            continue
+        color = roles[meta]
+        if getattr(trace, "line", None) is not None and trace.type == "scatter":
+            trace.line.color = color
+        if getattr(trace, "marker", None) is not None:
+            trace.marker.color = color
+        if getattr(trace, "fillcolor", None) and meta in fills:
+            trace.fillcolor = fills[meta]
+
+
 def chart_palette(theme: str) -> dict[str, str]:
     """Return the chart chrome colors for ``theme`` ("dark" or "light")."""
-    return _CHART_THEMES.get(theme, _CHART_THEMES["dark"])
+    return _CHART_THEMES.get(theme, _CHART_THEMES["graphite"])
 
 
 # The full set of colors a reference line / muted annotation may currently hold,
@@ -95,6 +165,22 @@ def apply_chart_theme(fig: go.Figure, theme: str) -> go.Figure:
     )
     fig.update_xaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
     fig.update_yaxes(gridcolor=t["grid"], zerolinecolor=t["zero"])
+    _recolor_traces(fig, theme)
+    if theme == "graphite":
+        # Restrained Graphite chart chrome: Inter at small sizes, quiet title,
+        # tabular axis numbers, no axis lines, small legend.
+        fig.update_layout(
+            font=dict(family="Inter, Segoe UI, Helvetica, Arial, sans-serif", size=11),
+            title_font=dict(size=12, color=t["font"]),
+            legend=dict(font=dict(size=10), bgcolor="rgba(0,0,0,0)"),
+            hoverlabel=dict(bgcolor="#1B2128", bordercolor="#2D333B"),
+        )
+        if fig.layout.margin.t is not None and fig.layout.margin.t > 30:
+            fig.update_layout(margin=dict(l=58, r=56, t=40, b=64))
+        fig.update_xaxes(showline=False, ticks="", title_font=dict(size=10))
+        fig.update_yaxes(
+            showline=False, ticks="", title_font=dict(size=10), separatethousands=True
+        )
     # Recolor the reference lines so they do not vanish on a dark ground.
     for shape in fig.layout.shapes:
         if shape.line is not None and shape.line.color in _REF_COLORS:
@@ -161,7 +247,9 @@ def yield_curves_figure(snapshot: MarketSnapshot | None) -> go.Figure:
                 y=[r * 100.0 for r in curve.zero_rates],
                 name=ccy,
                 mode="lines+markers",
-                line=dict(color=_SERIES[i % len(_SERIES)], width=2.5),
+                line=dict(color=_SERIES[i % len(_SERIES)], width=2),
+                marker=dict(size=5),
+                meta=f"series{i % len(_SERIES)}",
             )
         )
     fig = _base_layout(fig, "Zero (discount) curves", ytitle="Zero rate (%)")
@@ -181,7 +269,9 @@ def credit_curves_figure(snapshot: MarketSnapshot | None) -> go.Figure:
                 y=[s * 1e4 for s in curve.spreads],
                 name=issuer,
                 mode="lines+markers",
-                line=dict(color=_SERIES[i % len(_SERIES)], width=2.5),
+                line=dict(color=_SERIES[i % len(_SERIES)], width=2),
+                marker=dict(size=5),
+                meta=f"series{i % len(_SERIES)}",
             )
         )
     fig = _base_layout(fig, "Credit-spread curves", ytitle="Spread (bps)")
@@ -203,7 +293,8 @@ def exposure_figure(exposure: ExposureProfile | None) -> go.Figure:
             y=list(exposure.pfe_99),
             name="PFE 99%",
             mode="lines",
-            line=dict(color=_PFE99, width=1),
+            line=dict(color=_PFE99, width=1, dash="dot"),
+            meta="pfe99",
         )
     )
     fig.add_trace(
@@ -212,9 +303,10 @@ def exposure_figure(exposure: ExposureProfile | None) -> go.Figure:
             y=list(exposure.pfe_95),
             name="PFE 95%",
             mode="lines",
-            line=dict(color=_PFE95, width=1),
+            line=dict(color=_PFE95, width=1.5),
             fill="tonexty",
             fillcolor="rgba(255,127,14,0.12)",
+            meta="pfe95",
         )
     )
     fig.add_trace(
@@ -223,7 +315,8 @@ def exposure_figure(exposure: ExposureProfile | None) -> go.Figure:
             y=list(exposure.ee),
             name="EE",
             mode="lines",
-            line=dict(color=_EE, width=2.5),
+            line=dict(color=_EE, width=2),
+            meta="ee",
         )
     )
     if not math.isnan(exposure.epe):
@@ -240,7 +333,8 @@ def exposure_figure(exposure: ExposureProfile | None) -> go.Figure:
                 y=[exposure.peak_pfe],
                 name="Peak PFE",
                 mode="markers",
-                marker=dict(color=_PFE95, size=10, symbol="diamond"),
+                marker=dict(color=_PFE95, size=8, symbol="circle"),
+                meta="pfe95",
             )
         )
     return _base_layout(fig, "Exposure profile")
@@ -259,6 +353,7 @@ def collateral_figure(collateral: CollateralResult | None) -> go.Figure:
             name="Uncollateralized",
             mode="lines",
             line=dict(color=_UNCOLLAT, width=2, dash="dash"),
+            meta="uncollat",
         )
     )
     fig.add_trace(
@@ -267,9 +362,10 @@ def collateral_figure(collateral: CollateralResult | None) -> go.Figure:
             y=list(collateral.ee_collateralized),
             name="Collateralized",
             mode="lines",
-            line=dict(color=_COLLAT, width=2.5),
+            line=dict(color=_COLLAT, width=2),
             fill="tozeroy",
             fillcolor="rgba(44,160,44,0.10)",
+            meta="collat",
         )
     )
     return _base_layout(fig, "Collateral effect on expected exposure")
@@ -289,6 +385,7 @@ def scenario_figure(
             name="Base PFE 95%",
             mode="lines",
             line=dict(color=_UNCOLLAT, width=1.5, dash="dot"),
+            meta="uncollat",
         )
     )
     fig.add_trace(
@@ -298,6 +395,7 @@ def scenario_figure(
             name="Stressed PFE 95%",
             mode="lines",
             line=dict(color=_PFE99, width=1.5, dash="dot"),
+            meta="stress",
         )
     )
     fig.add_trace(
@@ -306,7 +404,8 @@ def scenario_figure(
             y=list(base.ee),
             name="Base EE",
             mode="lines",
-            line=dict(color=_EE, width=2.5),
+            line=dict(color=_EE, width=2),
+            meta="ee",
         )
     )
     fig.add_trace(
@@ -315,7 +414,8 @@ def scenario_figure(
             y=list(stressed.ee),
             name="Stressed EE",
             mode="lines",
-            line=dict(color=_BREACH, width=2.5),
+            line=dict(color=_BREACH, width=2),
+            meta="stress",
         )
     )
     return _base_layout(fig, "Base vs stressed exposure")
@@ -344,6 +444,7 @@ def simulator_consequence_figure(
             x=["Uncollateralized", "After collateral"],
             y=[max(peak_pfe, 0.0), collat],
             marker_color=[_BREACH if breach else _UNCOLLAT, _COLLAT],
+            meta=["breach" if breach else "uncollat", "collat"],
         )
     )
     if limit is not None and not math.isnan(limit):
@@ -387,6 +488,7 @@ def simulator_profile_figure(
             line=dict(color=_PFE95, width=2),
             fill="tozeroy",
             fillcolor="rgba(255,127,14,0.10)",
+            meta="pfe95",
         )
     )
     if ee:
@@ -396,7 +498,8 @@ def simulator_profile_figure(
                 y=list(ee),
                 name="EE (uncollateralized)",
                 mode="lines",
-                line=dict(color=_EE, width=2.5),
+                line=dict(color=_EE, width=2),
+                meta="ee",
             )
         )
     # Only worth drawing when collateral actually bites; an open CSA reproduces
@@ -408,7 +511,8 @@ def simulator_profile_figure(
                 y=list(ee_collateralized),
                 name="EE after collateral",
                 mode="lines",
-                line=dict(color=_COLLAT, width=2.5, dash="dot"),
+                line=dict(color=_COLLAT, width=2, dash="dot"),
+                meta="collat",
             )
         )
     if limit is not None and not math.isnan(limit):
@@ -434,6 +538,7 @@ def cva_figure(cva: CVAResult | None) -> go.Figure:
             y=list(cva.contributions),
             name="CVA contribution",
             marker_color=_PFE95,
+            meta="bar",
         )
     )
     title = (
@@ -461,6 +566,7 @@ def limits_figure(limits: LimitCheck | None) -> go.Figure:
             y=[max(limits.current_peak_pfe, 0.0)],
             name="Existing book",
             marker_color=_UNCOLLAT,
+            meta="uncollat",
         )
     )
     fig.add_trace(
@@ -469,6 +575,7 @@ def limits_figure(limits: LimitCheck | None) -> go.Figure:
             y=[max(limits.incremental_peak_pfe, 0.0)],
             name="Incremental (proposed)",
             marker_color=color,
+            meta="breach" if limits.breach else "ok",
         )
     )
     if not math.isnan(limits.limit):
