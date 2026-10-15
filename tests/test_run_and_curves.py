@@ -1,13 +1,11 @@
-"""Run Analysis toolbar and the Market tab's plotted curves.
+"""Run Analysis in the deal header and the Market tab's plotted curves.
 
-Checks that Run Analysis is reachable as a toolbar button (not just a menu item)
+Checks that Run Analysis is reachable as a deal-header button (not just a menu item)
 and enabled out of the box, and that the Market tab plots the yield and
 credit-spread curves from the snapshot rather than only tabulating them.
 """
 
 from __future__ import annotations
-
-from PySide6.QtWidgets import QToolBar
 
 from duw.data.loader import load_market_snapshot
 from duw.ui.app_state import AppState
@@ -50,14 +48,17 @@ def test_market_tab_plots_the_curves(qapp) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Run Analysis toolbar
+# Run Analysis in the persistent deal header
 # --------------------------------------------------------------------------- #
-def test_run_analysis_is_on_the_toolbar_and_enabled(qapp) -> None:
+def test_run_analysis_is_in_the_deal_header_and_enabled(qapp) -> None:
     window = MainWindow()
-    toolbars = window.findChildren(QToolBar)
-    assert toolbars, "expected an analysis toolbar"
-    actions = toolbars[0].actions()
-    assert window.run_action in actions
-    assert window.save_deal_action in actions
-    # With the default trade and counterparty in place, Run is ready immediately.
+    bar = window.top_bar
+    # With the default trade and counterparty in place, Run is ready immediately,
+    # and the header buttons mirror the actions' enabled state.
     assert window.run_action.isEnabled()
+    assert bar.run_button.isEnabled()
+    assert not bar.save_button.isEnabled()
+    window.run_action.setEnabled(False)
+    assert not bar.run_button.isEnabled()
+    window.save_deal_action.setEnabled(True)
+    assert bar.save_button.isEnabled()

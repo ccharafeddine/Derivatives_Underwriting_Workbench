@@ -17,6 +17,11 @@ from __future__ import annotations
 # order (which differs; see the Market note). Framing them by group keeps the
 # left-to-right reading consistent.
 TAB_HELP: dict[str, str] = {
+    "Overview": (
+        "The deal on one page: the netting set's exposure profile with the "
+        "proposed trade, the counterparty's credit read-out, the limit check, and "
+        "the illustrative underwriting decision with its rationale."
+    ),
     "Trade": (
         "Input 1 of 3 — the deal itself. Describe the trade the client wants to do "
         "(product, size, rate, maturity, which side you're on). Everything "

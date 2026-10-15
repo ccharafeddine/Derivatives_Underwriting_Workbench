@@ -151,6 +151,7 @@ def test_main_window_builds_all_tabs(qapp) -> None:
     window = MainWindow()
     labels = [window.tabs.tabText(i) for i in range(window.tabs.count())]
     assert labels == [
+        "Overview",
         "Trade",
         "Counterparty",
         "Market",

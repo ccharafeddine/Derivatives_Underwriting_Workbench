@@ -464,6 +464,22 @@ class ExposureEngine:
             )
         raise TypeError(f"unsupported trade type: {type(trade).__name__}")
 
+    def inception_mtms(self) -> list[tuple[Trade, float]]:
+        """Each trade's mark-to-market today, in the reporting currency.
+
+        Prices on today's curves, survival curves and FX spots (the same inputs
+        every path shares at t = 0), for per-trade tables such as the deal
+        overview's netting-set breakdown.
+        """
+        curves = {ccy: self._base_curve(ccy) for ccy in self._currencies}
+        survivals = {iss: self._base_survival(iss) for iss in self._issuers}
+        spots = dict(self.snapshot.fx_spot)
+        out: list[tuple[Trade, float]] = []
+        for trade in self.netting_set.trades:
+            mtm = self._net_mtm(0.0, curves, survivals, spots, trades=(trade,))
+            out.append((trade, mtm))
+        return out
+
     # -- profile ----------------------------------------------------------- #
     def run(
         self,

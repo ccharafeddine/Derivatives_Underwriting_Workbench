@@ -126,4 +126,4 @@ def test_main_window_dispatches_results_to_tabs(qapp) -> None:
     assert window.exposure_tab.view.figure is not None
     assert window.cva_tab.view.figure is not None
     assert window.collateral_tab.view.figure is not None
-    assert window.tabs.currentWidget() is window.exposure_tab
+    assert window.tabs.currentWidget() is window.overview_tab

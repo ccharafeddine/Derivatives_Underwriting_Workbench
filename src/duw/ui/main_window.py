@@ -1,10 +1,14 @@
 """Main window.
 
-The composed :class:`QMainWindow`: a traditional File / Edit / View / Settings
-menu bar and a :class:`QTabWidget` of the workflow tabs — Trade, Counterparty,
-and Market are inputs; Exposure, Limits, Collateral, CVA, Scenario, and
-Sensitivities are analytics; Memo and Pipeline are outputs — over a shared
-:class:`~duw.ui.app_state.AppState`, with a Run Analysis action.
+The composed :class:`QMainWindow` in the Graphite layout: a persistent deal
+header (top bar with the deal in context and the main actions), grouped left
+navigation, and for each page a title, the deal's KPI strip and the page
+itself. Pages: the deal Overview (decision), the inputs (Trade, Counterparty,
+Market), the analytics (Exposure, Limits, Collateral, CVA, Scenario,
+Sensitivities) and the outputs (Memo, Pipeline, Simulator), all over a shared
+:class:`~duw.ui.app_state.AppState`. The pages live in a :class:`QTabWidget`
+whose tab bar is hidden (the navigation drives it), so ``window.tabs`` keeps
+its familiar API. The File / View / Settings / Help menu bar is kept.
 
 Run launches the pipeline on a background :class:`~duw.pipeline.worker.PipelineWorker`
 thread so the UI stays responsive; progress is shown on a status-bar progress
@@ -14,15 +18,22 @@ heavy computation happens on the worker thread. Qt lives here.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QUrl
+import math
+
+from PySide6.QtCore import QUrl
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 from duw.config import (
@@ -47,6 +58,7 @@ from duw.risk.scenarios import ScenarioSpec, apply_scenario
 from duw.store.deals import Deal, DealStore, default_deal_store_path
 from duw.ui.app_state import AppState
 from duw.ui.dialogs import SettingsDialog, show_about, show_glossary
+from duw.ui.format import short_money
 from duw.ui.help import tab_help
 from duw.ui.sensitivities_run import compute_async as compute_sensitivities_async
 from duw.ui.tabs.collateral_tab import CollateralTab
@@ -56,12 +68,13 @@ from duw.ui.tabs.exposure_tab import ExposureTab
 from duw.ui.tabs.limits_tab import LimitsTab
 from duw.ui.tabs.market_tab import MarketTab
 from duw.ui.tabs.memo_tab import MemoTab
+from duw.ui.tabs.overview_tab import OverviewTab, deal_kpis
 from duw.ui.tabs.pipeline_tab import PipelineTab
 from duw.ui.tabs.scenario_tab import ScenarioTab
 from duw.ui.tabs.sensitivities_tab import SensitivitiesTab
 from duw.ui.tabs.simulator_tab import SimulatorTab
 from duw.ui.tabs.trade_tab import TradeTab
-from duw.ui.theme import THEMES, apply_theme
+from duw.ui.theme import THEME_LABELS, THEMES, apply_theme, normalize_theme
 from duw.ui.tooltips import (
     add_help_badges,
     install_tooltip_gate,
@@ -69,10 +82,13 @@ from duw.ui.tooltips import (
     set_help_badges_visible,
 )
 from duw.ui.update_check import check_async
+from duw.ui.widgets.app_shell import KpiStrip, NavPanel, PageHeader, TopBar, app_icon
 from duw.updates import UpdateInfo
 
-# The workflow tabs, in the order a run flows through them.
+# The workflow pages, in the order a run flows through them (the Overview
+# summarises the decision). Also the keys of the help registry.
 TAB_NAMES: tuple[str, ...] = (
+    "Overview",
     "Trade",
     "Counterparty",
     "Market",
@@ -88,15 +104,38 @@ TAB_NAMES: tuple[str, ...] = (
 )
 
 
+# One-line page subtitles shown next to the page title.
+PAGE_SUBTITLES: dict[str, str] = {
+    "Overview": "Exposure, limit and credit read-out with the underwriting decision",
+    "Trade": "Proposed trade and the counterparty's existing book",
+    "Counterparty": "Financials, internal rating and default probability",
+    "Market": "Discount curves, CDS curves and FX, as of the snapshot",
+    "Exposure": "Monte Carlo EE / PFE profile of the netting set",
+    "Limits": "Peak PFE against the counterparty limit",
+    "Collateral": "CSA terms and their effect on exposure",
+    "CVA": "CVA, DVA and FVA with per-period contributions",
+    "Scenario": "Shock the market and re-run against the base",
+    "Sensitivities": "DV01, CS01 and FX delta of the netting set",
+    "Memo": "Credit memo preview and export (HTML / PDF / PPTX)",
+    "Pipeline": "Saved deals by status",
+    "Simulator": "A guided underwriting campaign with scoring",
+}
+
+# Pages that are not about the deal in the header hide the KPI strip.
+_NO_KPI_PAGES = frozenset({"Pipeline", "Simulator"})
+
+
 class MainWindow(QMainWindow):
-    """Top-level window: menu bar, tabbed workflow, and the run wiring."""
+    """Top-level window: deal header, grouped navigation, pages, run wiring."""
 
     def __init__(
         self, app_state: AppState | None = None, store: DealStore | None = None
     ) -> None:
         super().__init__()
         self.setWindowTitle("Derivatives Underwriting Workbench")
-        self.resize(1200, 800)
+        self.setWindowIcon(app_icon())
+        self.resize(1440, 900)
+        self._example_name: str | None = None
 
         self.app_state = app_state or AppState()
         self.settings = AppSettings()
@@ -107,6 +146,7 @@ class MainWindow(QMainWindow):
         self._last_inputs: tuple | None = None
         self.results: AnalysisResults | None = None
 
+        self.overview_tab = OverviewTab()
         self.trade_tab = TradeTab(self.app_state)
         self.counterparty_tab = CounterpartyTab(self.app_state)
         self.market_tab = MarketTab(self.app_state)
@@ -126,7 +166,7 @@ class MainWindow(QMainWindow):
 
         self._build_tabs()
         self._build_menu_bar()
-        self._build_toolbar()
+        self._build_shell()
         self._build_status_bar()
 
         # Global gate for the learning tooltips, toggled from the Settings menu.
@@ -144,7 +184,16 @@ class MainWindow(QMainWindow):
 
         self.app_state.tradeChanged.connect(self._update_run_enabled)
         self.app_state.counterpartyChanged.connect(self._update_run_enabled)
+        for signal in (
+            self.app_state.tradeChanged,
+            self.app_state.counterpartyChanged,
+            self.app_state.bookChanged,
+            self.app_state.snapshotChanged,
+        ):
+            signal.connect(self._update_context)
         self._update_run_enabled()
+        self._update_context()
+        self._on_page_changed(self.tabs.currentIndex())
 
         # Opt-in: check for updates on startup (off by default, offline-first).
         self._update_signals = None
@@ -154,6 +203,9 @@ class MainWindow(QMainWindow):
     # -- construction ------------------------------------------------------ #
     def _build_tabs(self) -> None:
         self.tabs = QTabWidget()
+        self.tabs.setObjectName("pageStack")
+        self.tabs.setDocumentMode(True)
+        self.tabs.addTab(self.overview_tab, "Overview")
         self.tabs.addTab(self.trade_tab, "Trade")
         self.tabs.addTab(self.counterparty_tab, "Counterparty")
         self.tabs.addTab(self.market_tab, "Market")
@@ -169,7 +221,8 @@ class MainWindow(QMainWindow):
         # Learning tooltip on each tab, explaining that step of the workflow.
         for i in range(self.tabs.count()):
             self.tabs.setTabToolTip(i, tab_help(self.tabs.tabText(i)))
-        self.setCentralWidget(self.tabs)
+        # The grouped navigation replaces the tab bar.
+        self.tabs.tabBar().hide()
 
     def _build_menu_bar(self) -> None:
         menu_bar = self.menuBar()
@@ -191,14 +244,22 @@ class MainWindow(QMainWindow):
 
         menu_bar.addMenu("&Edit")
 
-        # View menu — theme selection (persisted).
+        # View menu — page navigation and theme selection (persisted).
         view_menu = menu_bar.addMenu("&View")
+        go_menu = view_menu.addMenu("&Go to")
+        for i, name in enumerate(TAB_NAMES):
+            action = QAction(name, self)
+            if i < 9:
+                action.setShortcut(f"Ctrl+{i + 1}")
+            action.triggered.connect(lambda _checked, n=name: self.show_page(n))
+            go_menu.addAction(action)
         theme_menu = view_menu.addMenu("&Theme")
         self._theme_group = QActionGroup(self)
         self._theme_group.setExclusive(True)
-        current_theme = self.settings.get_str(KEY_THEME)
+        current_theme = normalize_theme(self.settings.get_str(KEY_THEME))
         for theme in THEMES:
-            action = QAction(theme.title(), self, checkable=True)
+            label = THEME_LABELS.get(theme, theme.title())
+            action = QAction(label, self, checkable=True)
             action.setChecked(theme == current_theme)
             action.triggered.connect(lambda _checked, t=theme: self._set_theme(t))
             self._theme_group.addAction(action)
@@ -220,6 +281,7 @@ class MainWindow(QMainWindow):
         # Help menu — examples, glossary, updates, About / disclaimer.
         help_menu = menu_bar.addMenu("&Help")
         examples_menu = help_menu.addMenu("Load &Example")
+        self.examples_menu = examples_menu
         for example in examples():
             action = QAction(example.name, self)
             action.setToolTip(example.description)
@@ -240,27 +302,133 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(lambda: show_about(self))
         help_menu.addAction(about_action)
 
-    def _build_toolbar(self) -> None:
-        # A always-visible action bar so Run Analysis is reachable from any tab,
-        # not buried in the File menu.
-        toolbar = self.addToolBar("Analysis")
-        toolbar.setObjectName("analysisToolbar")
-        toolbar.setMovable(False)
-        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    def _build_shell(self) -> None:
+        """Top bar (deal header) over [navigation | page title, KPIs, page]."""
         self.run_action.setToolTip(
             "Run the full underwriting analysis on the current trade and "
-            "counterparty, and fill in every analytics tab (Ctrl+R)."
+            "counterparty, and fill in every analytics page (Ctrl+R)."
         )
-        toolbar.addAction(self.run_action)
-        toolbar.addAction(self.save_deal_action)
+        self.top_bar = TopBar()
+        self.top_bar.run_button.clicked.connect(self.run_action.trigger)
+        self.top_bar.save_button.clicked.connect(self.save_deal_action.trigger)
+        self.run_action.changed.connect(self._sync_action_buttons)
+        self.save_deal_action.changed.connect(self._sync_action_buttons)
+        examples_popup = QMenu(self.top_bar.examples_button)
+        for action in self.examples_menu.actions():
+            examples_popup.addAction(action)
+        self.top_bar.examples_button.setMenu(examples_popup)
+        self.top_bar.pageRequested.connect(self.show_page)
+        self._sync_action_buttons()
+
+        self.nav = NavPanel()
+        self.nav.pageSelected.connect(self.show_page)
+        self.page_header = PageHeader()
+        self.kpi_strip = KpiStrip()
+
+        content = QWidget()
+        content.setObjectName("content")
+        col = QVBoxLayout(content)
+        col.setContentsMargins(16, 12, 16, 12)
+        col.setSpacing(10)
+        col.addWidget(self.page_header)
+        col.addWidget(self.kpi_strip)
+        col.addWidget(self.tabs, 1)
+        self.tabs.currentChanged.connect(self._on_page_changed)
+
+        body = QWidget()
+        row = QHBoxLayout(body)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+        row.addWidget(self.nav)
+        row.addWidget(content, 1)
+
+        central = QWidget()
+        outer = QVBoxLayout(central)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        outer.addWidget(self.top_bar)
+        outer.addWidget(body, 1)
+        self.setCentralWidget(central)
 
     def _build_status_bar(self) -> None:
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setMaximumWidth(220)
         self.progress.setVisible(False)
+        self.run_info = QLabel("")
+        self.run_info.setObjectName("statusLabel")
+        self.statusBar().addPermanentWidget(self.run_info)
         self.statusBar().addPermanentWidget(self.progress)
         self.statusBar().showMessage("Enter a trade and counterparty to run.")
+
+    # -- navigation and deal header ---------------------------------------- #
+    def page_widget(self, name: str) -> QWidget | None:
+        """The page widget for a workflow name (``"Exposure"``, ...)."""
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == name:
+                return self.tabs.widget(i)
+        return None
+
+    def show_page(self, name: str) -> None:
+        """Navigate to a page by its workflow name."""
+        widget = self.page_widget(name)
+        if widget is not None:
+            self.tabs.setCurrentWidget(widget)
+
+    def current_page(self) -> str:
+        return self.tabs.tabText(self.tabs.currentIndex())
+
+    def _on_page_changed(self, index: int) -> None:
+        name = self.tabs.tabText(index)
+        self.nav.select(name)
+        self.page_header.set_page(self.nav.label(name), PAGE_SUBTITLES.get(name, ""))
+        self.kpi_strip.setVisible(name not in _NO_KPI_PAGES)
+
+    def _sync_action_buttons(self) -> None:
+        self.top_bar.run_button.setEnabled(self.run_action.isEnabled())
+        self.top_bar.save_button.setEnabled(self.save_deal_action.isEnabled())
+
+    @staticmethod
+    def _trade_summary(trade: Trade | None) -> str:
+        if trade is None:
+            return "No trade"
+        direction = getattr(trade, "direction", None)
+        side = f" {direction.name.replace('_', ' ').lower()}" if direction else ""
+        return (
+            f"{trade.product}{side} · {short_money(trade.notional)} {trade.currency}"
+            f" · {trade.maturity_date:%b %Y}"
+        )
+
+    def _update_context(self, *_args: object) -> None:
+        state = self.app_state
+        cp = state.counterparty
+        cp_text = "No counterparty"
+        if cp is not None:
+            rating = f" · {cp.internal_rating}" if cp.internal_rating else ""
+            cp_text = cp.name + rating
+        n = len(state.book)
+        book = f"Book: {n} trade{'s' if n != 1 else ''}" if n else "Book: none"
+        snap = state.snapshot
+        as_of = f"Snapshot {snap.as_of:%d %b %Y}" if snap is not None else ""
+        self.top_bar.set_context(cp_text, self._trade_summary(state.trade), book, as_of)
+
+    def _set_kpis(self, results: AnalysisResults | None) -> None:
+        self.kpi_strip.clear()
+        for name, value, sub, tone in deal_kpis(results):
+            self.kpi_strip.set_metric(name, value, sub, tone)
+        cfg = results.run_config if results is not None else {}
+        if cfg:
+            parts = []
+            if "n_paths" in cfg:
+                parts.append(f"MC {int(cfg['n_paths']):,} paths")
+            if "n_steps" in cfg:
+                parts.append(f"{int(cfg['n_steps'])} steps")
+            if "seed" in cfg:
+                parts.append(f"seed {cfg['seed']}")
+            lgd = cfg.get("lgd")
+            if isinstance(lgd, float) and not math.isnan(lgd):
+                parts.append(f"LGD {lgd:.0%}")
+            self.run_info.setText(" · ".join(parts))
 
     # -- run enable/disable ------------------------------------------------ #
     def _update_run_enabled(self, *_args: object) -> None:
@@ -364,6 +532,7 @@ class MainWindow(QMainWindow):
         self._thread.finished.connect(self._on_thread_finished)
 
         self.run_action.setEnabled(False)
+        self.top_bar.set_running(True)
         self.scenario_tab.set_busy(True)
         self.progress.setValue(0)
         self.progress.setVisible(True)
@@ -380,6 +549,8 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Stressed scenario complete.")
             return
         self.results = results
+        self.overview_tab.set_results(results)
+        self._set_kpis(results)
         self.exposure_tab.set_results(results)
         self.limits_tab.set_results(results)
         self.collateral_tab.set_results(results)
@@ -388,7 +559,7 @@ class MainWindow(QMainWindow):
         self.sensitivities_tab.set_ready(self._last_inputs is not None)
         self.memo_tab.set_results(results)
         self.save_deal_action.setEnabled(True)
-        self.tabs.setCurrentWidget(self.exposure_tab)
+        self.tabs.setCurrentWidget(self.overview_tab)
         self.statusBar().showMessage("Analysis complete.")
 
     def _on_failed(self, message: str) -> None:
@@ -397,6 +568,7 @@ class MainWindow(QMainWindow):
 
     def _on_thread_finished(self) -> None:
         self.progress.setVisible(False)
+        self.top_bar.set_running(False)
         self._thread = None
         self._worker = None
         self.scenario_tab.set_busy(False)
@@ -437,6 +609,8 @@ class MainWindow(QMainWindow):
         for trade in example.book:
             self.app_state.add_to_book(trade)
         self.trade_tab.load_trade(example.trade)
+        self._example_name = example.name
+        self.top_bar.set_example(example.name)
         self.tabs.setCurrentWidget(self.trade_tab)
         self.statusBar().showMessage(
             f"Loaded example: {example.name} — press Run Analysis (Ctrl+R)."
@@ -484,6 +658,10 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app is not None:
             apply_theme(app, theme)
+        self.nav.retheme()
+        if self.results is not None:
+            self._set_kpis(self.results)
+            self.overview_tab.set_results(self.results)
         # Charts render in their own web views and do not inherit the Qt style
         # sheet, so re-skin every chart in place to match the new theme.
         from duw.ui.widgets.plotly_view import PlotlyView
