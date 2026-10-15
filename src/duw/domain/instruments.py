@@ -22,6 +22,7 @@ Unit conventions (documented once, relied on everywhere):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
@@ -103,6 +104,28 @@ class Trade:
     currency: str
     trade_date: date
     maturity_date: date
+
+    def __post_init__(self) -> None:
+        # Reject terms no pricer can value; the message is shown to the user.
+        problems: list[str] = []
+        if not math.isfinite(self.notional) or self.notional <= 0.0:
+            problems.append("notional must be a positive amount")
+        if self.maturity_date <= self.trade_date:
+            problems.append("maturity must be after the trade date")
+        for name in ("fixed_rate", "spread", "strike", "contract_rate", "base_rate",
+                     "foreign_rate", "float_spread"):
+            value = getattr(self, name, None)
+            if value is not None and not math.isfinite(value):
+                problems.append(f"{name.replace('_', ' ')} must be a number")
+        for name in ("spread", "contract_rate", "volatility", "foreign_notional"):
+            value = getattr(self, name, None)
+            if value is not None and value < 0.0:
+                problems.append(f"{name.replace('_', ' ')} cannot be negative")
+        recovery = getattr(self, "recovery_rate", None)
+        if recovery is not None and not 0.0 <= recovery < 1.0:
+            problems.append("recovery rate must be in [0, 1)")
+        if problems:
+            raise ValueError(f"Trade {self.trade_id}: " + "; ".join(problems) + ".")
 
     @property
     def product(self) -> str:

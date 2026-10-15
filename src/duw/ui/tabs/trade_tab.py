@@ -629,19 +629,26 @@ class TradeTab(QWidget):
         return "CP"
 
     def _refresh(self) -> None:
-        trade, error = self._build()
+        from duw.ui.theme import tokens
+
+        tk = tokens()
+        try:
+            trade, error = self._build()
+        except ValueError as exc:  # terms the domain model rejects
+            trade, error = None, str(exc)
         if trade is not None:
             self.summary.setText(self._describe(trade))
-            self.status.setText("<span style='color:#2e7d32'>Valid trade.</span>")
+            ok = tk["green"]
+            self.status.setText(f"<span style='color:{ok}'>Valid trade.</span>")
             if self._needs_fixing(trade):
                 self.status.setText(
-                    "<span style='color:#b26a00'>Valid trade. Seasoned swap: the "
-                    "coupon in progress is estimated from the curve. Tick "
+                    f"<span style='color:{tk['amber']}'>Valid trade. Seasoned swap: "
+                    "the coupon in progress is estimated from the curve. Tick "
                     "<i>Current fixing</i> and enter the known rate.</span>"
                 )
         else:
             self.summary.setText("—")
-            self.status.setText(f"<span style='color:#c62828'>{error}</span>")
+            self.status.setText(f"<span style='color:{tk['red']}'>{error}</span>")
         self.add_book_btn.setEnabled(trade is not None)
         if self._app_state is not None:
             self._app_state.set_trade(trade)
