@@ -94,6 +94,14 @@ def _risk_free_rate(snapshot: MarketSnapshot, currency: str, horizon: float) -> 
     return float(curve.zero_rate(horizon))
 
 
+def _cds_discount_curve(snapshot: MarketSnapshot) -> DiscountCurve | None:
+    """USD curve for discounting the CDS legs (single-name CDS trade in USD)."""
+    curve = snapshot.discount_curves.get("USD")
+    if curve is None and snapshot.discount_curves:
+        curve = next(iter(snapshot.discount_curves.values()))
+    return None if curve is None else DiscountCurve.from_yield_curve(curve)
+
+
 def assess_counterparty(
     counterparty: Counterparty,
     snapshot: MarketSnapshot,
@@ -129,7 +137,11 @@ def assess_counterparty(
         and counterparty.cds_issuer in snapshot.credit_curves
     )
     if has_cds:
-        survival = SurvivalCurve.bootstrap(snapshot.credit(counterparty.cds_issuer))
+        survival = SurvivalCurve.bootstrap(
+            snapshot.credit(counterparty.cds_issuer),
+            discount_curve=_cds_discount_curve(snapshot),
+            as_of=snapshot.as_of,
+        )
         pd_term = pd_term_structure_from_survival(survival)
         pd_one_year = survival.default_prob(1.0)
     elif merton_pd is not None:

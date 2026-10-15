@@ -9,7 +9,7 @@ Pure numerics (numpy only, no Qt). Two curve objects back all pricing:
   tenor. Forward discount factors and simple forward rates come off the same
   object so a floating leg can be projected in a single-curve framework.
 - :class:`SurvivalCurve` — issuer survival probabilities from a piecewise-
-  constant forward-hazard bootstrap of a CDS spread curve.
+  constant forward-hazard bootstrap that reprices the quoted CDS spreads.
 
 Time is always a **year fraction from the market as-of date**. A valuation at a
 future time ``t_v`` discounts a later cashflow at ``u`` by
@@ -27,6 +27,9 @@ from datetime import date
 import numpy as np
 
 from duw.domain.market import CreditCurve, YieldCurve
+
+# Schedule anchor for a bootstrap called without a market as-of date.
+_NEUTRAL_AS_OF = date(2000, 1, 3)
 
 
 def year_fraction(as_of: date, d: date) -> float:
@@ -116,14 +119,14 @@ class DiscountCurve:
 
 
 class SurvivalCurve:
-    """Issuer survival probabilities from a piecewise-constant hazard bootstrap.
+    """Issuer survival probabilities with piecewise-constant forward hazards.
 
-    The bootstrap uses the credit triangle ``h_i = spread_i / (1 - R)`` to imply
-    a flat hazard to each CDS tenor, then backs out piecewise-constant forward
-    hazards ``lambda_k`` that reprice those node survivals. This is a simplified
-    bootstrap: it omits discounting in the par-spread equation (a full bootstrap
-    would iterate on premium/protection PVs against a discount curve). Forward
-    hazards are floored at zero, so survival is monotone non-increasing.
+    :meth:`bootstrap` solves the hazards node by node so that a standard CDS
+    (quarterly premium, ACT/360 accrual, accrual-on-default, protection leg
+    integrated against the discount curve) to each quoted tenor prices at par
+    on its quoted spread, the same construction as QuantLib's
+    ``PiecewiseFlatHazardRate`` with ``SpreadCdsHelper``. Forward hazards are
+    floored at zero, so survival is monotone non-increasing.
     """
 
     def __init__(
@@ -142,22 +145,47 @@ class SurvivalCurve:
             self._lambda_back = (self._cum_hazard[-1] - self._cum_hazard[-2]) / dt
 
     @classmethod
-    def bootstrap(
-        cls, credit_curve: CreditCurve, recovery: float | None = None
+    def from_flat_hazard(
+        cls, hazard: float, tenors: tuple[float, ...] = (1.0, 5.0, 10.0)
     ) -> SurvivalCurve:
-        """Bootstrap a survival curve from a CDS spread curve."""
-        r = credit_curve.recovery_rate if recovery is None else recovery
-        lgd = 1.0 - r
-        if lgd <= 0.0:
-            raise ValueError("recovery must be < 1 to imply a hazard rate")
-        tenors = np.asarray(credit_curve.tenors, dtype=float)
-        spreads = np.asarray(credit_curve.spreads, dtype=float)
-        # Flat hazard implied by each node, then cumulative hazard target.
-        flat_hazard = spreads / lgd
-        cum_target = flat_hazard * tenors
-        # Enforce a non-decreasing cumulative hazard (floor forward hazards at 0).
-        cum = np.maximum.accumulate(cum_target)
-        return cls(tuple(tenors), tuple(cum))
+        """Constant forward hazard ``hazard`` at every horizon."""
+        return cls(tuple(tenors), tuple(hazard * t for t in tenors))
+
+    @classmethod
+    def bootstrap(
+        cls,
+        credit_curve: CreditCurve,
+        recovery: float | None = None,
+        *,
+        discount_curve: DiscountCurve | None = None,
+        as_of: date | None = None,
+        currency: str = "USD",
+    ) -> SurvivalCurve:
+        """Bootstrap a survival curve that reprices every quoted CDS spread.
+
+        ``discount_curve`` should be the curve of the CDS currency; without one
+        the legs are left undiscounted (a zero-rate curve), which is only a
+        fallback for callers with no rates context. ``as_of`` anchors the dated
+        premium schedules; it defaults to a fixed neutral Monday.
+        """
+        from duw.pricing.cds import bootstrap_cumulative_hazard
+
+        nodes, cum = bootstrap_cumulative_hazard(
+            credit_curve,
+            discount_curve or DiscountCurve.from_zero_rates((1.0,), (0.0,)),
+            as_of or _NEUTRAL_AS_OF,
+            recovery=recovery,
+            currency=currency,
+        )
+        return cls(nodes, cum)
+
+    def scaled(self, multiplier: float) -> SurvivalCurve:
+        """Same shape with every forward hazard multiplied by ``multiplier``."""
+        out = SurvivalCurve.__new__(SurvivalCurve)
+        out._t = self._t
+        out._cum_hazard = self._cum_hazard * multiplier
+        out._lambda_back = self._lambda_back * multiplier
+        return out
 
     def _cumulative_hazard(self, t: float) -> float:
         if t <= 0.0:

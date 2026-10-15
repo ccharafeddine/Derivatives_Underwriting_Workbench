@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from duw.domain.market import CreditCurve
 from duw.domain.results import CVAResult
 from duw.pricing.curves import DiscountCurve, SurvivalCurve
 
@@ -104,14 +103,14 @@ def constant_hazard_survival(
     recovery: float = 0.4,
     tenors: tuple[float, ...] = _OWN_CURVE_TENORS,
 ) -> SurvivalCurve:
-    """Build a flat-spread survival curve (e.g. for our own credit / DVA)."""
-    flat = CreditCurve(
-        issuer="OWN",
-        tenors=tenors,
-        spreads=tuple(spread for _ in tenors),
-        recovery_rate=recovery,
-    )
-    return SurvivalCurve.bootstrap(flat)
+    """Build a flat-spread survival curve (e.g. for our own credit / DVA).
+
+    Uses the credit triangle ``hazard = spread / (1 - recovery)``, the flat
+    hazard a flat CDS curve implies to first order.
+    """
+    if not 0.0 <= recovery < 1.0:
+        raise ValueError("recovery must be < 1 to imply a hazard rate")
+    return SurvivalCurve.from_flat_hazard(spread / (1.0 - recovery), tenors)
 
 
 def _adjustment_leg(

@@ -276,7 +276,12 @@ class Orchestrator:
         # assessed PD term structure via cumulative hazard.
         if counterparty.cds_issuer in snapshot.credit_curves:
             credit_curve = snapshot.credit(counterparty.cds_issuer)
-            cp_survival = SurvivalCurve.bootstrap(credit_curve)
+            cp_survival = SurvivalCurve.bootstrap(
+                credit_curve,
+                discount_curve=discount_curve,
+                as_of=snapshot.as_of,
+                currency=ccy,
+            )
             cp_lgd = 1.0 - credit_curve.recovery_rate
         else:
             cp_survival = self._survival_from_profile(profile, cfg)
