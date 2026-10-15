@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QProgressBar,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -332,7 +333,15 @@ class MainWindow(QMainWindow):
         col.setSpacing(10)
         col.addWidget(self.page_header)
         col.addWidget(self.kpi_strip)
-        col.addWidget(self.tabs, 1)
+        # Pages scroll rather than forcing a tall window: on a 1366x768
+        # laptop the taller pages (Counterparty, Simulator) would otherwise
+        # push the window past the screen.
+        self.page_scroll = QScrollArea()
+        self.page_scroll.setObjectName("pageScroll")
+        self.page_scroll.setWidgetResizable(True)
+        self.page_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.page_scroll.setWidget(self.tabs)
+        col.addWidget(self.page_scroll, 1)
         self.tabs.currentChanged.connect(self._on_page_changed)
 
         body = QWidget()

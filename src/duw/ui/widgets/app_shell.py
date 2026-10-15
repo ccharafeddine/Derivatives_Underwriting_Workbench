@@ -124,9 +124,9 @@ class TopBar(QFrame):
         self, counterparty: str, trade: str, book: str, snapshot: str
     ) -> None:
         for chip, text, width in (
-            (self.chip_counterparty, counterparty, 230),
-            (self.chip_trade, trade, 260),
-            (self.chip_book, book, 120),
+            (self.chip_counterparty, counterparty, 180),
+            (self.chip_trade, trade, 240),
+            (self.chip_book, book, 100),
         ):
             # Elide long names so the header fits a 1366-px laptop screen.
             metrics = chip.fontMetrics()
