@@ -8,6 +8,9 @@ apply the recommended decision; following the best play to the end yields a
 
 from __future__ import annotations
 
+import time
+
+import pytest
 from PySide6.QtCore import QEventLoop, QTimer
 
 from duw.scenario import coaching
@@ -16,7 +19,13 @@ from duw.ui.tabs.simulator_tab import SimulatorTab
 
 
 def _wait(tab: SimulatorTab, pred, max_ms: int = 60_000) -> None:
-    """Run a nested event loop until ``pred()`` is true (or timeout)."""
+    """Run a nested event loop until ``pred()`` is true; fail if it never is.
+
+    Timing out used to return silently, so a run that never finished turned
+    the play-through loops below into up to 100 one-minute waits, which the
+    per-test timeout then reported as a hang. Failing here names the stuck
+    state immediately instead.
+    """
     if pred():
         return
     loop = QEventLoop()
@@ -24,9 +33,15 @@ def _wait(tab: SimulatorTab, pred, max_ms: int = 60_000) -> None:
     poll.setInterval(20)
     poll.timeout.connect(lambda: loop.quit() if pred() else None)
     QTimer.singleShot(max_ms, loop.quit)
+    started = time.monotonic()
     poll.start()
     loop.exec()
     poll.stop()
+    if not pred():
+        pytest.fail(
+            f"simulator did not settle within {time.monotonic() - started:.0f}s "
+            f"(busy={tab.is_busy()}, benchmark_ready={tab.is_benchmark_ready()})"
+        )
 
 
 def _wait_idle(tab: SimulatorTab) -> None:
@@ -67,6 +82,9 @@ def test_apply_recommended_fills_the_controls(qapp) -> None:
     assert tab.limit_spin.value() == recommended.limit
 
 
+# A full guided play-through: about 15 s alone, but every deal is a real engine
+# run, so on a loaded CI runner it can exceed the suite-wide 180 s budget.
+@pytest.mark.timeout(600)
 def test_following_best_play_earns_top_marks(qapp) -> None:
     tab = SimulatorTab()
     tab.load_tutorial()

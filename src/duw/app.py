@@ -6,6 +6,7 @@ Builds the :class:`QApplication` and shows the :class:`MainWindow` (defined in
 
 from __future__ import annotations
 
+import os
 import sys
 
 from duw import __version__
@@ -93,6 +94,23 @@ def main(argv: list[str] | None = None) -> int:
     # Qt is imported lazily so ``--selftest`` needs no display.
     from PySide6.QtWidgets import QApplication
 
+    from duw.ui.widgets.plotly_view import (
+        STATIC_ENV,
+        mark_web_session,
+        previous_session_crashed,
+        static_charts_enabled,
+    )
+
+    recovered = False
+    if "--static-charts" in args:
+        os.environ[STATIC_ENV] = "1"
+    elif previous_session_crashed():
+        # The last run died while web charts were live: QtWebEngine is the
+        # usual native-crash culprit, so fall back to static charts this time.
+        os.environ[STATIC_ENV] = "1"
+        mark_web_session(False)
+        recovered = True
+
     from duw.config import KEY_THEME, AppSettings
     from duw.ui.main_window import MainWindow
     from duw.ui.theme import apply_theme
@@ -105,7 +123,19 @@ def main(argv: list[str] | None = None) -> int:
 
     window = MainWindow()
     window.show()
-    return app.exec()
+    if recovered:
+        window.statusBar().showMessage(
+            "The last session closed unexpectedly, so charts are static images "
+            "this time. Restart normally to use interactive charts.",
+            15_000,
+        )
+    web = not static_charts_enabled()
+    if web:
+        mark_web_session(True)
+    code = app.exec()
+    if web:
+        mark_web_session(False)
+    return code
 
 
 if __name__ == "__main__":
