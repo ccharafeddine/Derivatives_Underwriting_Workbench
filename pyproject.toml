@@ -38,6 +38,10 @@ dev = [
     # A per-test timeout so a flaky Qt/QtWebEngine hang on a headless CI runner
     # fails fast and names the culprit, instead of stalling the whole job.
     "pytest-timeout>=2.3",
+    # Independent references for tests/test_reference_math.py (pricing, day
+    # counts, calendars, CDS bootstrap). Tests skip if they are missing.
+    "QuantLib>=1.34",
+    "py_vollib>=1.0.1",
 ]
 # Tooling for building native binaries (see PACKAGING.md). Signing the built
 # artifacts is deferred and documented there.
