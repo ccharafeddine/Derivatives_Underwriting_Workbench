@@ -1,12 +1,27 @@
-# Derivatives Underwriting Workbench
+<p align="center">
+  <picture>
+    <source srcset="src/duw/ui/assets/logo.svg" type="image/svg+xml">
+    <img src="src/duw/ui/assets/logo.png" alt="Derivatives Underwriting Workbench logo" width="128" height="128">
+  </picture>
+</p>
 
-A desktop app that teaches the OTC derivatives counterparty-credit decision: exposure, collateral, limits, and CVA, on synthetic data.
+<h1 align="center">Derivatives Underwriting Workbench</h1>
 
-[![CI](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![Qt](https://img.shields.io/badge/UI-PySide6%20%2F%20Qt6-41cd52.svg)](https://doc.qt.io/qtforpython/)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+  A desktop app that teaches the OTC derivatives counterparty-credit decision: exposure, collateral, limits, and CVA, on synthetic data.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml"><img src="https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/Qt-PySide6-41CD52?logo=qt&logoColor=white" alt="Built with PySide6 / Qt6">
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2F6FEB.svg" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="Deal overview in the Graphite theme: deal header with counterparty, proposed trade and book; grouped navigation; KPI strip with peak PFE, limit use, EPE, CVA, DVA, FVA, MtM and the recommendation; exposure profile; counterparty credit read-out; limit check; the underwriting decision; and the netting set with today's MtM" width="100%">
+</p>
 
 [Releases](https://github.com/ccharafeddine/Derivatives_Underwriting_Workbench/releases)
 
@@ -44,6 +59,27 @@ analysis.
 > with or endorsed by any financial institution. Nothing it produces is
 > investment, credit, or legal advice.
 
+### What's new: the Graphite redesign
+
+- **One design system with Portfolio Analyzer.** Neutral graphite surfaces and
+  hairline rules, one blue accent, green and red kept for gains, losses and
+  breaches, Inter with tabular numerals so columns of figures line up. The
+  original amber "Terminal" and beige "Paper" themes are still under
+  View → Theme.
+- **Grouped navigation** (Deal · Analytics · Market · Output) replaces the row
+  of twelve tabs; Ctrl+1…9 jump between pages.
+- **A persistent deal header**: counterparty and rating, the proposed trade,
+  the existing book and the snapshot date stay in view on every page, next to
+  Examples, Save deal and Run analysis.
+- **A KPI strip** of the deal's headline numbers (peak PFE, limit use, EPE,
+  CVA, DVA, FVA, MtM today, recommendation) above every deal page.
+- **A deal Overview** that puts the underwriting decision on one page: the
+  exposure profile, the counterparty's credit read-out, the limit check, the
+  drafted decision with its rationale, and the netting set with each trade's
+  MtM today.
+- **Restrained charts**: white EE, one blue for PFE and collateral, red only
+  for breaches and stress.
+
 ---
 
 ## What it does
@@ -51,11 +87,21 @@ analysis.
 A corporate derivatives underwriting desk answers one question for every
 proposed trade: *should we take this counterparty exposure, at what limit, with
 what collateral, and what does it do to our book?* This app models that
-decision end to end — and its tabs are arranged as a learning progression, each
+decision end to end — and its pages are arranged as a learning progression, each
 teaching one concept and building on the ones before it: from the trade and
 counterparty, to exposure, to collateral and limits, to the credit-risk pricing
 (CVA/DVA/FVA and wrong-way risk) that sits on top. A **Teaches** note on each
 section names the concept it targets.
+
+### Overview
+
+The deal on one page, and where every run lands: the netting set's exposure
+profile with the proposed trade, the counterparty's credit read-out, the limit
+check (existing book, the proposed trade's increment and the early-warning
+line), the drafted decision with its rationale, and the netting set's trades
+with today's mark-to-market.
+
+![Deal overview](docs/images/overview.png)
 
 ### 1. Trade
 
@@ -68,7 +114,7 @@ notional, tenor, direction, and the economic terms for each leg. The trade is
 added to the counterparty's existing netting set so exposure is measured on the
 net position, the way an ISDA master agreement actually works.
 
-![Trade input tab](docs/images/trade.png)
+![Trade ticket](docs/images/trade.png)
 
 ### 2. Counterparty
 
@@ -84,7 +130,7 @@ ticker and **Fetch** pulls the company's financials via yfinance when the option
 Fetch says so and keeps the values already on screen. Private names come from
 the bundled synthetic set.
 
-![Counterparty tab](docs/images/counterparty.png)
+![Counterparty page](docs/images/counterparty.png)
 
 ### 3. Market
 
@@ -98,7 +144,7 @@ or spread and Apply, and the next analysis prices against your values — a quic
 way to test how the drivers move exposure and CVA (or reset to the bundled
 snapshot).
 
-![Market tab](docs/images/market.png)
+![Market page](docs/images/market.png)
 
 ### 4. Exposure
 
@@ -113,7 +159,7 @@ netting set on every path at every date, and reads off the exposure profile:
 - **Potential Future Exposure (PFE)** at 95% and 99%, and **peak PFE**
 - The full exposure cone over time
 
-![Exposure tab](docs/images/exposure.png)
+![Exposure page](docs/images/exposure.png)
 
 ### 5. Limits
 
@@ -125,7 +171,7 @@ aggregated across existing and proposed trades to show current utilization,
 remaining headroom, the **incremental** exposure the new trade adds, and a clear
 flag when it would breach the limit.
 
-![Limits tab](docs/images/limits.png)
+![Limits page](docs/images/limits.png)
 
 ### 6. Collateral
 
@@ -140,7 +186,7 @@ mitigation is explicit. Collateral posted in a different currency than the
 exposure carries an FX haircut, so you can see why cross-currency collateral
 mitigates less.
 
-![Collateral tab](docs/images/collateral.png)
+![Collateral page](docs/images/collateral.png)
 
 ### 7. CVA
 
@@ -156,7 +202,7 @@ alongside. A **wrong-way risk** correlation (set in Preferences) tilts expected
 exposure toward its higher paths, raising CVA when exposure rises with default
 risk.
 
-![CVA tab](docs/images/cva.png)
+![CVA page](docs/images/cva.png)
 
 ### 8. Scenario
 
@@ -169,7 +215,7 @@ presets like *Risk-off* and *Credit crunch*) — and re-run to compare base vs
 stressed exposure, CVA, and limit utilization side by side, with the two
 exposure profiles overlaid.
 
-![Scenario tab](docs/images/scenario.png)
+![Scenario page](docs/images/scenario.png)
 
 ### 9. Sensitivities
 
@@ -183,7 +229,7 @@ parallel rate move) and FX delta (per 1% FX move) of peak PFE and CVA, and CS01
 (common random numbers) so the difference reflects the market move, not
 simulation noise.
 
-![Sensitivities tab](docs/images/sensitivities.png)
+![Sensitivities page](docs/images/sensitivities.png)
 
 ### 10. Memo
 
@@ -195,7 +241,7 @@ exposure metrics, collateral effect, CVA, limit impact, and a recommendation.
 Plain-English commentary is generated across every section by an interpretation
 engine. Exportable as HTML and PDF, with an optional client-facing slide deck.
 
-![Memo tab](docs/images/memo.png)
+![Memo page](docs/images/memo.png)
 
 ### 11. Pipeline
 
@@ -249,12 +295,6 @@ answered, and the consequences are revealed alongside the credit dossier.
 
 ![Simulator guided decision](docs/images/simulator.png)
 
-The collateral stage, showing the CSA terms as live dials — move the threshold,
-initial margin or margin period of risk and the exposure numbers and profile
-respond before you commit.
-
-![Simulator collateral terms](docs/images/simulator-collateral.png)
-
 The closing debrief: the run scored against the scenario's own best play, graded
 skill by skill, with the next stage unlocked.
 
@@ -288,9 +328,9 @@ The learning scaffolding is a first-class part of the app, not incidental UI:
   each key control, with a **?** help badge beside the field (hover, or click for
   instant help) and a one-click on/off switch in **Settings → Learning
   tooltips**. Result-table metrics also carry their glossary definition on hover.
-- **What this means** — the analytics tabs pair each chart with a plain-English
+- **Reading** — the analytics pages pair each chart with a plain-English
   reading of the numbers, generated from the actual results.
-- **Scenario sandbox** (the Scenario tab) — a hands-on space to apply market
+- **Scenario sandbox** (the Stress & scenarios page) — a hands-on space to apply market
   shocks and watch exposure, CVA, and limit utilization move against the base
   case, so cause and effect are visible rather than asserted.
 - **Editable market inputs** (the Market tab) — the yield and credit-spread
