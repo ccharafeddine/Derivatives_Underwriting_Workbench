@@ -1,10 +1,5 @@
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-  <!-- Derivatives Underwriting Workbench: Graphite app tile -->
-  <rect x="4" y="4" width="248" height="248" rx="56" fill="#161B21" stroke="#2D333B" stroke-width="2"/>
-  <g transform="translate(128 128) scale(0.86) translate(-128 -128)">
-  <circle cx="128" cy="128" r="74" fill="none" stroke="#2D333B" stroke-width="22"/>
-  <path d="M54.00 128.00 A74 74 0 0 1 128.00 54.00" fill="none" stroke="#2F6FEB" stroke-width="22"/>
-  <path d="M92 156 C104 156 108 108 128 108 C146 108 152 140 166 150" fill="none" stroke="#E6EDF3" stroke-width="12" stroke-linecap="round"/>
-  <rect x="90" y="160" width="78" height="8" rx="2" fill="#768390"/>
-  </g>
-</svg>
+<rect x="4" y="4" width="248" height="248" rx="56" fill="#161B21" stroke="#2D333B" stroke-width="2"/>
+<g transform="translate(128 128) scale(0.86) translate(-128 -128)"><path d="M128 48 L194 72 V126 C194 170 164 196 128 212 C92 196 62 170 62 126 V72 Z" fill="none" stroke="#444C56" stroke-width="18" stroke-linejoin="round"/>
+<line x1="92" y1="160" x2="164" y2="160" stroke="#768390" stroke-width="8" stroke-linecap="round"/>
+<path d="M92 160 C104 104 118 96 130 98 C146 100 156 124 164 160" fill="none" stroke="#14B8A6" stroke-width="14" stroke-linecap="round"/></g></svg>

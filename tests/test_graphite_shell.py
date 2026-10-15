@@ -285,9 +285,9 @@ def test_untagged_traces_are_left_alone() -> None:
 
 
 def test_logo_assets_and_icon(qapp) -> None:
-    for name in ("logo.svg", "logo_small.svg", "logo_mark.svg", "app.ico"):
+    for name in ("logo.svg", "logo_mark.svg", "logo.png", "app.ico"):
         assert (Path(ASSETS) / name).exists(), name
-    assert "#2F6FEB" in (Path(ASSETS) / "logo.svg").read_text()
+    assert "#14B8A6" in (Path(ASSETS) / "logo.svg").read_text().upper()
     assert not app_icon().isNull()
     assert not MainWindow().windowIcon().isNull()
 

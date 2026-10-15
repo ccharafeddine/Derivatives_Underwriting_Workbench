@@ -44,16 +44,11 @@ def logo_path(name: str = "logo.svg") -> str:
 
 
 def app_icon() -> QIcon:
-    """The application icon: the small-size tile for 16-48 px, the full tile above."""
+    """The application icon (the unified finance-apps Workbench tile)."""
     icon = QIcon()
-    for name, sizes in (
-        ("logo_small.svg", (16, 24, 32, 48)),
-        ("logo.svg", (64, 128, 256)),
-    ):
-        path = ASSETS / name
-        if not path.exists():
-            continue
-        for size in sizes:
+    path = ASSETS / "logo.svg"
+    if path.exists():
+        for size in (16, 24, 32, 48, 64, 128, 256):
             icon.addFile(str(path), QSize(size, size))
     return icon
 
