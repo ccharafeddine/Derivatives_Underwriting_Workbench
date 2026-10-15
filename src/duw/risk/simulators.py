@@ -4,13 +4,10 @@ Three factors drive exposure, each simulated on an explicit time grid with an
 explicit :class:`numpy.random.Generator` (no global random state, so a fixed
 seed reproduces every path):
 
-- **Rates** — a mean-reverting parallel shift of the zero curve, ``Delta(t)``,
-  starting at ``Delta(0) = 0``. The projected discount curve at a future node is
-  the initial curve with every zero rate shifted by ``Delta``. This is the
-  Vasicek / shocked-curve approximation that CLAUDE.md permits as a v1 fallback
-  in place of a fully calibrated Hull-White one-factor bond reconstruction; it
-  anchors the ``t = 0`` node to the true inception curve and keeps the factor
-  stationary. Documented here rather than pretending to be full HW1F.
+- **Rates** — the zero-mean Ornstein-Uhlenbeck factor ``x(t)`` of a Hull-White
+  one-factor model, ``x(0) = 0``. The exposure engine shifts it onto each
+  date's forward measure and rebuilds the full discount curve from it in closed
+  form (:mod:`duw.risk.hull_white`).
 - **FX** — geometric Brownian motion for the spot with drift chosen so the mean
   simulated spot equals the covered-interest-parity forward at each horizon.
 - **Credit** — a mean-reverting factor in log space; the CDS spread multiplier
@@ -79,7 +76,7 @@ def simulate_rate_shift(
     n_paths: int,
     kappa: float = 0.10,
 ) -> np.ndarray:
-    """Mean-reverting parallel curve shift ``Delta(t)`` with ``Delta(0) = 0``.
+    """Hull-White factor ``x(t)`` (zero-mean OU, ``x(0) = 0``).
 
     ``sigma`` is the absolute (normal) short-rate volatility from the snapshot.
     """

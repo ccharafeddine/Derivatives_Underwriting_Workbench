@@ -12,11 +12,12 @@ in-the-money probability falls below 5% (e.g. a swap near maturity), the 95th
 percentile of exposure is legitimately 0 while EE is a small positive number.
 The dominance holds wherever exposure is reasonably likely.
 
-Repricing along a path uses the shocked-curve approximation from
-:mod:`duw.risk.simulators`: at node ``(path, t)`` the discount curve is the
-initial curve shifted by the simulated parallel rate move, the survival curve is
-bootstrapped from the initial CDS spreads scaled by the simulated credit
-multiplier, and the FX spot is the simulated level. Each trade is then priced at
+Repricing along a path: at node ``(path, t)`` the discount curve is the
+Hull-White one-factor curve implied by the simulated factor
+(:mod:`duw.risk.hull_white`, rolled forward and martingale-consistent under
+each date's forward measure), the survival curve is today's bootstrapped curve
+with its hazards scaled by the simulated credit multiplier, and the FX spot is
+the simulated level. Each trade is then priced at
 ``valuation_time = t`` with the existing analytic pricers.
 
 **Currency.** Each trade's mark-to-market is converted into one reporting
@@ -47,7 +48,7 @@ from duw.domain.instruments import (
     Swaption,
     Trade,
 )
-from duw.domain.market import CreditCurve, MarketSnapshot
+from duw.domain.market import MarketSnapshot
 from duw.domain.results import ExposureProfile
 from duw.pricing.cds import price_cds
 from duw.pricing.curves import DiscountCurve, SurvivalCurve, year_fraction
@@ -55,6 +56,7 @@ from duw.pricing.fx_forward import forward_rate_fx, price_fx_forward
 from duw.pricing.irs import price_irs
 from duw.pricing.swaption import price_swaption
 from duw.pricing.xccy import price_cross_currency_swap
+from duw.risk.hull_white import HullWhiteCurve, forward_measure_drifts
 
 
 class MixedCurrencyError(ValueError):
@@ -124,16 +126,6 @@ class ExposureEngine:
                 zero_rates=snapshot.curve(ccy).zero_rates,
             )
             for ccy in self._currencies
-        }
-        # Tenor arrays are fixed for the run. A sorted curve can be shifted
-        # without re-running the discount-curve constructor's sort.
-        self._tenor_np = {
-            ccy: np.asarray(data.tenors, dtype=float)
-            for ccy, data in self._curve_data.items()
-        }
-        self._tenor_sorted = {
-            ccy: bool(t.size <= 1 or np.all(t[1:] >= t[:-1]))
-            for ccy, t in self._tenor_np.items()
         }
         self._check_currency_conversions()
         self._fx_pairs = self._collect_fx_pairs()
@@ -262,13 +254,16 @@ class ExposureEngine:
         rng = np.random.default_rng(seed)
         grid = np.asarray(time_grid, dtype=float)
 
-        # Rate shifts per currency (drawn in a fixed order for reproducibility).
+        # Hull-White factors per currency (drawn in a fixed order for
+        # reproducibility), shifted to each date's t-forward measure so the
+        # deterministic discounting used for EE / CVA is martingale-consistent.
         rate_paths: dict[str, np.ndarray] = {}
         for ccy in self._currencies:
-            sigma = self.snapshot.rate_vols.get(ccy, 0.01)
-            rate_paths[ccy] = simulate_rate_shift(
+            sigma = self._rate_sigma(ccy)
+            x = simulate_rate_shift(
                 rng, grid, sigma=sigma, n_paths=n_paths, kappa=self.kappa_rate
             )
+            rate_paths[ccy] = x - forward_measure_drifts(grid, self.kappa_rate, sigma)
 
         # Credit multipliers per issuer.
         credit_paths: dict[str, np.ndarray] = {}
@@ -284,17 +279,15 @@ class ExposureEngine:
         # Reused across paths that share a shift (every path at t = 0, and any
         # later duplicate). Local to this call so two runs with the same seed
         # rebuild from scratch and stay bit-identical.
-        curve_cache: dict[tuple[str, float], DiscountCurve] = {}
+        curve_cache: dict[tuple[str, float, float], DiscountCurve] = {}
         survival_cache: dict[tuple[str, float], SurvivalCurve] = {}
 
-        def curve_for(ccy: str, shift: float) -> DiscountCurve:
+        def curve_for(ccy: str, shift: float, t: float = 0.0) -> DiscountCurve:
             # float() so a numpy 0.0 and a Python 0.0 share one cached curve.
-            # The builder still sees the original shift so the zero-rate add
-            # matches DiscountCurve.from_zero_rates on that same value.
-            key = (ccy, float(shift))
+            key = (ccy, float(t), float(shift))
             found = curve_cache.get(key)
             if found is None:
-                found = self._discount_curve(ccy, shift)
+                found = self._discount_curve(ccy, shift, t)
                 curve_cache[key] = found
             return found
 
@@ -323,7 +316,7 @@ class ExposureEngine:
         for k, t in enumerate(grid):
             for p in range(n_paths):
                 curves = {
-                    ccy: curve_for(ccy, rate_paths[ccy][p, k])
+                    ccy: curve_for(ccy, rate_paths[ccy][p, k], float(t))
                     for ccy in self._currencies
                 }
                 survivals = {
@@ -334,49 +327,55 @@ class ExposureEngine:
                 cube[p, k] = self._net_mtm(float(t), curves, survivals, spots, trades)
         return cube
 
-    def _curve_args(
-        self, ccy: str, shift: float
-    ) -> tuple[tuple[float, ...], tuple[float, ...]]:
-        data = self._curve_data[ccy]
-        shifted = tuple(r + shift for r in data.zero_rates)
-        return data.tenors, shifted
+    def _rate_sigma(self, ccy: str) -> float:
+        """Hull-White normal short-rate volatility for ``ccy``."""
+        return float(self.snapshot.rate_vols.get(ccy, 0.01))
 
-    def _discount_curve(self, ccy: str, shift: float) -> DiscountCurve:
-        """Parallel-shifted discount curve for ``ccy``.
+    def _base_curve(self, ccy: str) -> DiscountCurve:
+        cache = self.__dict__.setdefault("_base_curve_cache", {})
+        found = cache.get(ccy)
+        if found is None:
+            data = self._curve_data[ccy]
+            found = DiscountCurve.from_zero_rates(data.tenors, data.zero_rates)
+            cache[ccy] = found
+        return found
 
-        Bit-identical to ``DiscountCurve.from_zero_rates(*self._curve_args(...))``
-        when the snapshot tenors are already sorted, which they are for every
-        bundled curve. The constructor's argsort and repeated tuple conversions
-        are skipped; the discount factors themselves are built the same way
-        (``exp(-r t)``, then ``log`` of that factor after the same float
-        round-trip ``from_zero_rates`` performs).
+    def _discount_curve(self, ccy: str, x: float, t: float = 0.0) -> DiscountCurve:
+        """Curve for ``ccy`` seen at simulation time ``t`` with factor ``x``.
+
+        At ``t = 0`` (with ``x = 0``) this is today's curve exactly. Later dates
+        use the Hull-White reconstruction in :mod:`duw.risk.hull_white`.
         """
-        data = self._curve_data[ccy]
-        zeros = tuple(rate + shift for rate in data.zero_rates)
-        if not self._tenor_sorted[ccy]:
-            return DiscountCurve.from_zero_rates(data.tenors, zeros)
-        tenors = self._tenor_np[ccy]
-        rates = np.asarray(zeros, dtype=float)
-        # Match from_zero_rates: DF = exp(-r t), then log after a Python-float
-        # round-trip. Skipping that round-trip changes df() by an ulp.
-        log_df = np.log(np.asarray(tuple(np.exp(-rates * tenors)), dtype=float))
-        curve = DiscountCurve.__new__(DiscountCurve)
-        curve._t = np.array(tenors, dtype=float, copy=True)
-        curve._log_df = log_df
-        curve._rate_front = -curve._log_df[0] / curve._t[0]
-        curve._rate_back = -curve._log_df[-1] / curve._t[-1]
-        return curve
+        base = self._base_curve(ccy)
+        if t <= 0.0 and x == 0.0:
+            return base
+        return HullWhiteCurve(base, t, x, self.kappa_rate, self._rate_sigma(ccy))
+
+    def _base_survival(self, issuer: str) -> SurvivalCurve:
+        """Today's survival curve for ``issuer``, bootstrapped once per engine."""
+        cache = self.__dict__.setdefault("_base_survival_cache", {})
+        found = cache.get(issuer)
+        if found is None:
+            ccy = next(
+                (
+                    t.currency
+                    for t in self.netting_set.trades
+                    if isinstance(t, CDS) and t.reference_entity == issuer
+                ),
+                "USD",
+            )
+            found = SurvivalCurve.bootstrap(
+                self.snapshot.credit(issuer),
+                discount_curve=DiscountCurve.from_yield_curve(self.snapshot.curve(ccy)),
+                as_of=self.as_of,
+                currency=ccy,
+            )
+            cache[issuer] = found
+        return found
 
     def _survival_for(self, issuer: str, log_factor: float) -> SurvivalCurve:
-        base = self.snapshot.credit(issuer)
-        multiplier = float(np.exp(log_factor))
-        scaled = CreditCurve(
-            issuer=base.issuer,
-            tenors=base.tenors,
-            spreads=tuple(s * multiplier for s in base.spreads),
-            recovery_rate=base.recovery_rate,
-        )
-        return SurvivalCurve.bootstrap(scaled)
+        """Today's curve with every forward hazard scaled by ``exp(log_factor)``."""
+        return self._base_survival(issuer).scaled(float(np.exp(log_factor)))
 
     def _net_mtm(
         self,

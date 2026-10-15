@@ -155,7 +155,9 @@ def test_exposure_non_negative_and_pfe_dominates_where_likely() -> None:
     # the mean is a small positive number, so this is asserted conditionally.
     for e, a, prob in zip(ee, p95, itm, strict=True):
         if prob > 0.10:
-            assert a >= e
+            # Relative slack for the t = 0 node, where every path is identical
+            # and the mean can exceed the percentile by a rounding ulp.
+            assert a >= e - 1e-12 * abs(e)
 
     profile = engine.profile_from_cube(cube, grid)
     assert profile.peak_pfe == pytest.approx(max(profile.pfe_95))
@@ -299,24 +301,28 @@ def test_fx_forward_quote_mtm_converts_into_the_trade_currency() -> None:
     assert cube[0, 0] == pytest.approx(usd_mtm / spot)
 
 
-def test_fast_discount_curve_matches_from_zero_rates() -> None:
+def test_inception_curve_is_todays_curve() -> None:
     engine = ExposureEngine(_irs_netting_set(), load_market_snapshot())
-    probes = (0.0, 0.1, 0.25, 1.0, 4.5, 10.0, 30.0)
-    for shift in (0.0, 1e-6, -0.002, 0.01, 0.123456789):
-        fast = engine._discount_curve("USD", shift)
-        slow = DiscountCurve.from_zero_rates(*engine._curve_args("USD", shift))
-        for t in probes:
-            assert fast.df(t) == slow.df(t)
-        assert fast.forward_simple_rate(1.0, 1.5) == slow.forward_simple_rate(1.0, 1.5)
+    today = DiscountCurve.from_yield_curve(load_market_snapshot().curve("USD"))
+    curve = engine._discount_curve("USD", 0.0, 0.0)
+    for t in (0.0, 0.1, 0.25, 1.0, 4.5, 10.0, 30.0):
+        assert curve.df(t) == today.df(t)
 
 
 def test_cached_curves_do_not_change_the_cube() -> None:
+    from duw.risk.hull_white import HullWhiteCurve
+
     engine = ExposureEngine(_irs_netting_set(), load_market_snapshot())
     grid = engine.build_time_grid(3)
     fast = engine.simulate_cube(grid, n_paths=12, seed=4)
+    today = DiscountCurve.from_yield_curve(load_market_snapshot().curve("USD"))
 
-    def slow(ccy: str, shift: float) -> DiscountCurve:
-        return DiscountCurve.from_zero_rates(*engine._curve_args(ccy, shift))
+    def slow(ccy: str, x: float, t: float = 0.0) -> DiscountCurve:
+        if t <= 0.0 and x == 0.0:
+            return today
+        return HullWhiteCurve(
+            today, t, x, engine.kappa_rate, engine.snapshot.rate_vols[ccy]
+        )
 
     engine._discount_curve = slow  # type: ignore[method-assign]
     reference = engine.simulate_cube(grid, n_paths=12, seed=4)
