@@ -90,6 +90,7 @@ def _trade_to_dict(trade: Trade) -> dict[str, Any]:
             float_day_count=trade.float_day_count.value,
             float_index=trade.float_index,
             float_spread=trade.float_spread,
+            current_fixing=trade.current_fixing,
         )
     elif isinstance(trade, FXForward):
         base.update(
@@ -156,6 +157,9 @@ def _trade_from_dict(d: dict[str, Any]) -> Trade:
             float_day_count=DayCount(d.get("float_day_count", "act/360")),
             float_index=d.get("float_index", "SOFR"),
             float_spread=float(d.get("float_spread", 0.0)),
+            current_fixing=(
+                None if d.get("current_fixing") is None else float(d["current_fixing"])
+            ),
         )
     if product == "FXForward":
         return FXForward(

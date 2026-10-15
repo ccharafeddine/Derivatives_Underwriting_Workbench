@@ -41,6 +41,7 @@ from duw.domain.instruments import (
     CdsDirection,
     CrossCurrencyDirection,
     CrossCurrencySwap,
+    DayCount,
     Frequency,
     FxDirection,
     FXForward,
@@ -85,6 +86,22 @@ def _frequency_combo(default: Frequency) -> QComboBox:
     for freq in Frequency:
         combo.addItem(freq.name.title(), freq)
     combo.setCurrentIndex(list(Frequency).index(default))
+    return combo
+
+
+_DAY_COUNT_LABELS = {
+    DayCount.THIRTY_360: "30/360",
+    DayCount.ACT_360: "ACT/360",
+    DayCount.ACT_365: "ACT/365F",
+}
+
+
+def _day_count_combo(default: DayCount) -> QComboBox:
+    combo = QComboBox()
+    for dc, label in _DAY_COUNT_LABELS.items():
+        combo.addItem(label, dc)
+    combo.setCurrentIndex(list(_DAY_COUNT_LABELS).index(default))
+    combo.setToolTip(control_help("day_count"))
     return combo
 
 
@@ -246,6 +263,18 @@ class TradeTab(QWidget):
         self.irs_float_freq = _frequency_combo(Frequency.QUARTERLY)
         self.irs_float_spread = _rate_spin(0.0, " bps", decimals=1)
         self.irs_float_spread.setRange(-1000.0, 1000.0)
+        self.irs_fixed_dc = _day_count_combo(DayCount.THIRTY_360)
+        self.irs_float_dc = _day_count_combo(DayCount.ACT_360)
+        self.irs_fixing_known = QCheckBox("Known")
+        self.irs_fixing_known.setToolTip(control_help("current_fixing"))
+        self.irs_fixing = _rate_spin(4.330, " %")
+        self.irs_fixing.setToolTip(control_help("current_fixing"))
+        self.irs_fixing.setEnabled(False)
+        fixing_row = QWidget()
+        fixing_layout = QHBoxLayout(fixing_row)
+        fixing_layout.setContentsMargins(0, 0, 0, 0)
+        fixing_layout.addWidget(self.irs_fixing_known)
+        fixing_layout.addWidget(self.irs_fixing, 1)
         self.irs_fixed_rate.setToolTip(control_help("fixed_rate"))
         self.irs_direction.setToolTip(control_help("direction"))
         form.addRow("Fixed rate", self.irs_fixed_rate)
@@ -253,8 +282,15 @@ class TradeTab(QWidget):
         form.addRow("Fixed frequency", self.irs_fixed_freq)
         form.addRow("Float frequency", self.irs_float_freq)
         form.addRow("Float spread", self.irs_float_spread)
-        for w in (self.irs_fixed_rate, self.irs_float_spread):
+        form.addRow("Fixed day count", self.irs_fixed_dc)
+        form.addRow("Float day count", self.irs_float_dc)
+        form.addRow("Current fixing", fixing_row)
+        for w in (self.irs_fixed_rate, self.irs_float_spread, self.irs_fixing):
             w.valueChanged.connect(self._refresh)
+        self.irs_fixing_known.toggled.connect(self.irs_fixing.setEnabled)
+        self.irs_fixing_known.toggled.connect(self._refresh)
+        self.irs_fixed_dc.currentIndexChanged.connect(self._refresh)
+        self.irs_float_dc.currentIndexChanged.connect(self._refresh)
         self.irs_direction.currentIndexChanged.connect(self._refresh)
         self.irs_fixed_freq.currentIndexChanged.connect(self._refresh)
         self.irs_float_freq.currentIndexChanged.connect(self._refresh)
@@ -426,6 +462,13 @@ class TradeTab(QWidget):
             fixed_frequency=Frequency(self.irs_fixed_freq.currentData()),
             float_frequency=Frequency(self.irs_float_freq.currentData()),
             float_spread=self.irs_float_spread.value() / 10_000.0,
+            fixed_day_count=DayCount(self.irs_fixed_dc.currentData()),
+            float_day_count=DayCount(self.irs_float_dc.currentData()),
+            current_fixing=(
+                self.irs_fixing.value() / 100.0
+                if self.irs_fixing_known.isChecked()
+                else None
+            ),
         )
 
     def _build_fx(
@@ -540,6 +583,11 @@ class TradeTab(QWidget):
             _set_combo_data(self.irs_fixed_freq, trade.fixed_frequency)
             _set_combo_data(self.irs_float_freq, trade.float_frequency)
             self.irs_float_spread.setValue(trade.float_spread * 1e4)
+            _set_combo_data(self.irs_fixed_dc, trade.fixed_day_count)
+            _set_combo_data(self.irs_float_dc, trade.float_day_count)
+            self.irs_fixing_known.setChecked(trade.current_fixing is not None)
+            if trade.current_fixing is not None:
+                self.irs_fixing.setValue(trade.current_fixing * 100.0)
         elif isinstance(trade, FXForward):
             self.product.setCurrentIndex(1)
             self.fx_base.setCurrentText(trade.base_currency)
@@ -585,12 +633,26 @@ class TradeTab(QWidget):
         if trade is not None:
             self.summary.setText(self._describe(trade))
             self.status.setText("<span style='color:#2e7d32'>Valid trade.</span>")
+            if self._needs_fixing(trade):
+                self.status.setText(
+                    "<span style='color:#b26a00'>Valid trade. Seasoned swap: the "
+                    "coupon in progress is estimated from the curve. Tick "
+                    "<i>Current fixing</i> and enter the known rate.</span>"
+                )
         else:
             self.summary.setText("—")
             self.status.setText(f"<span style='color:#c62828'>{error}</span>")
         self.add_book_btn.setEnabled(trade is not None)
         if self._app_state is not None:
             self._app_state.set_trade(trade)
+
+    def _needs_fixing(self, trade: Trade) -> bool:
+        """True for a seasoned IRS priced without its known current fixing."""
+        if not isinstance(trade, IRS) or trade.current_fixing is not None:
+            return False
+        if self._app_state is None:
+            return False
+        return trade.trade_date < self._app_state.snapshot.as_of
 
     @staticmethod
     def _describe(trade: Trade) -> str:
@@ -605,6 +667,12 @@ class TradeTab(QWidget):
                 f"{trade.direction.value}, fixed {trade.fixed_rate:.3%}, "
                 f"float +{trade.float_spread * 1e4:.0f} bps"
             )
+            lines.append(
+                f"Day counts: fixed {_DAY_COUNT_LABELS[trade.fixed_day_count]}, "
+                f"float {_DAY_COUNT_LABELS[trade.float_day_count]}"
+            )
+            if trade.current_fixing is not None:
+                lines.append(f"Current fixing: {trade.current_fixing:.3%}")
         elif isinstance(trade, FXForward):
             lines.append(
                 f"{trade.direction.value} {trade.base_currency}/"

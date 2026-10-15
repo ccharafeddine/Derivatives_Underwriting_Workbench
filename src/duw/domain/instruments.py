@@ -121,6 +121,11 @@ class IRS(Trade):
 
     ``fixed_rate`` and ``float_spread`` are decimals. Direction is expressed
     from our perspective via :class:`SwapDirection`.
+
+    ``current_fixing`` is the index rate (decimal, excluding ``float_spread``)
+    already set for the floating period in progress on the market as-of date.
+    It only matters for a seasoned swap (``trade_date`` before the as-of date);
+    when it is ``None`` the pricer estimates that coupon from the curve.
     """
 
     fixed_rate: float
@@ -131,6 +136,7 @@ class IRS(Trade):
     float_day_count: DayCount = DayCount.ACT_360
     float_index: str = "SOFR"
     float_spread: float = 0.0
+    current_fixing: float | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

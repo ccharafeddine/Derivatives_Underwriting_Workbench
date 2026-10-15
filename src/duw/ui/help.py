@@ -102,6 +102,17 @@ CONTROL_HELP: dict[str, str] = {
         "(par) rate is worth roughly zero at inception; as rates move, it gains or "
         "loses value, which is what creates exposure."
     ),
+    "day_count": (
+        "How each coupon period's accrual fraction is counted. 30/360 treats every "
+        "month as 30 days (the usual USD fixed leg); ACT/360 counts actual days over "
+        "360 (SOFR float leg); ACT/365F counts actual days over 365."
+    ),
+    "current_fixing": (
+        "For a seasoned swap (trade date before the market as-of date), the "
+        "floating rate already set for the coupon period in progress. It is paid "
+        "over the whole period. Leave it unticked to estimate it from today's "
+        "curve instead."
+    ),
     "direction": (
         "Which side you're on. 'Pay fixed' means you pay a fixed rate and receive "
         "the floating rate; you gain (and build exposure to the counterparty) when "
