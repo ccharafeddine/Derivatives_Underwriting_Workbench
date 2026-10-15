@@ -22,6 +22,9 @@ for package in ("PySide6", "plotly"):
 # Bundle the synthetic market snapshot and seed counterparties.
 datas += collect_data_files("duw", includes=["data/*.json", "data/scenarios/*.json"])
 
+# The Graphite logo and icons (window icon, top-bar mark).
+datas += collect_data_files("duw", includes=["ui/assets/*"])
+
 # reportlab carries data files used by the PDF memo.
 datas += collect_data_files("reportlab")
 
@@ -64,6 +67,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
+    icon="src/duw/ui/assets/app.ico",
 )
 
 coll = COLLECT(
